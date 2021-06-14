@@ -19,7 +19,7 @@ const (
 )
 
 func TestCompare(t *testing.T) {
-	fi, err := test.GetFileInfo()
+	fi, err := tests.GetFileInfo()
 	assert.NoError(t, err)
 
 	tt := map[string]struct {

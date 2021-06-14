@@ -124,8 +124,6 @@ func (r *Repo) Open() error {
 		return err
 	}
 
-	fmt.Println(r.archivePath)
-
 	_, err = io.Copy(archiveFile, resp.Body)
 	archiveFile.Close()
 	if err != nil {
@@ -189,13 +187,13 @@ func (r *Repo) Walk(walkFn WalkFunc) error {
 // zip folder downloaded from Github. It then closes the
 // zip.ReaderCloser attached.
 func (r *Repo) Close() error {
-	if len(r.tempDir) == 0 {
+	if r.tempDir == "" {
 		return nil
 	}
 
 	err := os.RemoveAll(r.tempDir)
 	if err != nil {
-		return err
+		return errors.New("error removing temp directory: " + err.Error())
 	}
 	r.tempDir = ""
 
