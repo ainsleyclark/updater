@@ -1,0 +1,2 @@
+# updater
+Updater for VerbisCMS
