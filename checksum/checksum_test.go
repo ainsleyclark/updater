@@ -6,43 +6,57 @@ package checksum
 
 import (
 	"fmt"
-	"github.com/ainsleyclark/updater/github"
-	"github.com/stretchr/testify/suite"
+	"github.com/ainsleyclark/updater/test"
+	"github.com/stretchr/testify/assert"
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 )
 
+const (
+	ValidChecksumURL = "https://github.com/cli/cli/releases/download/v1.11.0/gh_1.11.0_checksums.txt"
+	ValidChecksumPath = "gh_1.11.0_linux_amd64.tar.gz"
+	InvalidChecksumPath = "gh_1.11.0_windows_amd64.zip"
+)
 
-func (t *UpdaterTestSuite) TestFiles_Validate() {
+func TestCompare(t *testing.T) {
+	fi, err := test.GetFileInfo()
+	assert.NoError(t, err)
+
 	tt := map[string]struct {
-		input string
-		want  interface{}
+		url  string
+		path string
+		want error
 	}{
-		"Exists - File": {
-			t.testPath + string(os.PathSeparator) + "gopher.png",
+		"Success": {
+			ValidChecksumURL,
+			fi.TestDataPath + string(os.PathSeparator) + ValidChecksumPath,
 			nil,
 		},
-		"Exists - Folder": {
-			t.testPath + string(os.PathSeparator) + "folder",
-			nil,
+		"Wrong URL": {
+			"https://wrong.com",
+			"",
+			fmt.Errorf("EOF"),
 		},
-		"Not Exist": {
+		"Wrong Path": {
+			ValidChecksumURL,
 			"wrong",
-			"no file or directory exists with the path",
+			ErrNoCheckSum,
+		},
+		"Mismatch": {
+			ValidChecksumURL,
+			fi.TestDataPath + string(os.PathSeparator) + InvalidChecksumPath,
+			ErrMismatch,
 		},
 	}
 
 	for name, test := range tt {
-		t.Run(name, func() {
-			f := Files{File{LocalPath: test.input}}
-			got := f.Validate()
+		t.Run(name, func(t *testing.T) {
+			got := Compare(test.url, test.path)
 			if got != nil {
-				t.Contains(got.Error(), test.want)
+				assert.Contains(t, got.Error(), test.want.Error())
 				return
 			}
-			t.Equal(test.want, got)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }

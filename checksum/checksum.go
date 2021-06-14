@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -24,9 +23,6 @@ var (
 	// ErrNoCheckSum is returned by compare when no checksum
 	// could be found from the URL.
 	ErrNoCheckSum = errors.New("no checksum for archive found")
-)
-
-const (
 	// Separator describes the delimiter to separate checksums
 	// and archive names from GitHub.
 	Separator = "  "
@@ -44,7 +40,6 @@ func Compare(url, path string) (err error) {
 	if err != nil {
 		return
 	}
-	fmt.Println(localSum, remoteSum)
 	if remoteSum != localSum {
 		return ErrMismatch
 	}
