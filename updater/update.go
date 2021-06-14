@@ -7,7 +7,6 @@ package updater
 import (
 	"errors"
 	"github.com/ainsleyclark/updater/github"
-	"os"
 )
 
 type Updater struct {
@@ -22,13 +21,27 @@ var (
 	ErrLatestVersion = errors.New("at latest version")
 )
 
-func (u *Updater) Update() error {
+func (u *Updater) Update() (err error) {
 	update, err := u.CanUpdate()
 	if err != nil || !update {
-		return err
+		return
 	}
 
 	err = u.Files.Validate()
+	if err != nil {
+		return
+	}
+
+	err = u.Github.Open()
+	if err != nil {
+		return
+	}
+	//defer u.Github.Close()
+
+	err = u.Github.Walk(func(info *github.FileInfo) error {
+
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -54,17 +67,3 @@ func (u *Updater) CanUpdate() (bool, error) {
 	}
 	return true, nil
 }
-
-
-type Files []string
-
-func (f Files) Validate() error {
-	for _, file := range f {
-		_, err := os.Stat(file)
-		if !os.IsNotExist(err) {
-			return errors.New("no file or directory exists with the path: " + file)
-		}
-	}
-	return nil
-}
-

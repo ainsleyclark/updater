@@ -4,16 +4,21 @@
 
 package github
 
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
 import (
 	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ainsleyclark/updater/checksum"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"time"
 )
 
 type Provider interface {
@@ -23,88 +28,153 @@ type Provider interface {
 }
 
 type Repo struct {
-	RepoURL     string
-	ArchiveName string
-	tempDir     string
-	archivePath string
-	reader      *zip.ReadCloser
+	RepositoryURL string
+	ArchiveName   string
+	ChecksumName  string
+	tempDir       string
+	archivePath   string
+	info          Information
+	reader        *zip.ReadCloser
 }
 
-// tag struct used to unmarshal response from Repo
-// https://api.github.com/repos/ownerName/projectName/tags
+// tag defines the data used to unmarshal the response from
+// github. `Name` is only required to compare versions
+// and obtain archive information.
 type tag struct {
 	Name string `json:"name"`
 }
 
-// A FileInfo describes a file given by a provider
-type FileInfo struct {
-	Path string
-	Mode os.FileMode
+// Information contains the name and owner of the repository
+// used for obtaining tags, archive URL and checksums
+// if they are attached.
+type Information struct {
+	Owner string
+	Name  string
 }
 
-// WalkFunc is the type of the function called for each file or directory
-// visited by Walk.
-// path is relative
-type WalkFunc func(info *FileInfo) error
-
-var (
-	ErrNoCheckSum = errors.New("no checksum for archive found")
-	tagsUrl       = "https://api.Repo.com/repos/ainsleyclark/verbis/tags"
-)
-
 const (
+	// TempDirName is the name used to store the zip folder
+	// once it has been downloaded from the repo.
 	TempDirName = "verbis-updater"
 )
 
-func (g *Repo) Open() (err error) {
-	version, err := g.LatestVersion()
+// getInfo returns the owner and name of the github url
+// using regex. An error will be returned if the url
+// is invalid.
+func (r *Repo) getInfo() error {
+	re := regexp.MustCompile(`github\.com/(.*?)/(.*?)$`)
+	submatches := re.FindAllStringSubmatch(r.RepositoryURL, 1)
+	if len(submatches) < 1 {
+		return errors.New("invalid github URL:" + r.RepositoryURL)
+	}
+	r.info = Information{
+		Owner: submatches[0][1],
+		Name:  submatches[0][2],
+	}
+	return nil
+}
+
+// LatestVersion retrieves the latest release (tags) from
+// GitHub from the first tag. An error will be returned
+// if the repo has no tags or there was a problem
+// calling the Git API.
+func (r *Repo) LatestVersion() (string, error) {
+	err := r.getInfo()
 	if err != nil {
-		return
+		return "", err
 	}
 
-	archiveURL := g.getArchiveURL(version)
-	resp, err := http.Get(archiveURL)
+	tags, err := r.getTags()
+	if err != nil {
+		return "", err
+	}
+
+	if len(tags) < 1 {
+		return "", errors.New("repo has no tags")
+	}
+
+	return tags[0].Name, nil
+}
+
+// Open retrieves the relevant Github information, latest
+// tag and downloads the zip folder to a temporary
+// directory. A zip reader is the opened ready
+// for walking and copying files and folders.
+func (r *Repo) Open() error {
+	version, err := r.LatestVersion()
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the zip folder
+	resp, err := http.Get(r.getDownloadUrl(version, r.ArchiveName))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	g.tempDir, err = ioutil.TempDir("", TempDirName)
+	r.tempDir, err = ioutil.TempDir("", TempDirName)
 	if err != nil {
-		return
+		return err
 	}
 
-	g.archivePath = filepath.Join(g.tempDir, g.ArchiveName)
-	archiveFile, err := os.Create(g.archivePath)
+	r.archivePath = filepath.Join(r.tempDir, r.ArchiveName)
+	archiveFile, err := os.Create(r.archivePath)
 	if err != nil {
-		return
+		return err
 	}
+
+	fmt.Println(r.archivePath)
 
 	_, err = io.Copy(archiveFile, resp.Body)
 	archiveFile.Close()
 	if err != nil {
-		return
+		return err
 	}
 
-	g.reader, err = zip.OpenReader(g.archivePath)
+	// Compare checksums if a name is set.
+	if r.ChecksumName != "" {
+		err := checksum.Compare(r.getDownloadUrl(version, r.ChecksumName), r.archivePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	r.reader, err = zip.OpenReader(r.archivePath)
 	if err != nil {
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
-// Walk
-func (g *Repo) Walk(walkFn WalkFunc) error {
-	if g.reader == nil {
+// WalkFunc is used for walking over the repository and
+// collecting file info by iterating over the zip
+// file.
+type WalkFunc func(info *FileInfo) error
+
+// FileInfo defines the information sent back from the walk
+// function.
+type FileInfo struct {
+	Path     string
+	Mode     os.FileMode
+	Modified time.Time
+}
+
+// Walk iterates over the zip folder stored in a temporary
+// directory. If the zip does not exist or the zip
+// ReadCloser is nil, and error will be returned.
+func (r *Repo) Walk(walkFn WalkFunc) error {
+	if r.reader == nil {
 		return errors.New("nil zip.ReadCloser")
 	}
 
-	for _, f := range g.reader.File {
+	for _, f := range r.reader.File {
 		if f != nil {
 			err := walkFn(&FileInfo{
-				Path: f.Name,
-				Mode: f.Mode(),
+				Path:     f.Name,
+				Mode:     f.Mode(),
+				Modified: f.Modified,
 			})
 			if err != nil {
 				return err
@@ -115,30 +185,35 @@ func (g *Repo) Walk(walkFn WalkFunc) error {
 	return nil
 }
 
-func (g *Repo) Close() error {
-	if len(g.tempDir) <= 0 {
+// Close removes the temporary directory used to store the
+// zip folder downloaded from Github. It then closes the
+// zip.ReaderCloser attached.
+func (r *Repo) Close() error {
+	if len(r.tempDir) == 0 {
 		return nil
 	}
 
-	err := os.RemoveAll(g.tempDir)
+	err := os.RemoveAll(r.tempDir)
 	if err != nil {
 		return err
 	}
-	g.tempDir = ""
+	r.tempDir = ""
 
-	return g.reader.Close()
+	return r.reader.Close()
 }
 
-// GetArchiveURL
-func (g *Repo) getArchiveURL(tag string) string {
-	return fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", "ainleyclark/verbis", tag, g.ArchiveName)
+// getDownloadUrl returns the URL of a download from the
+// repository based on the input tag name, and the name
+// of the archive (could be a zip or checksums.txt).
+func (r *Repo) getDownloadUrl(tag string, name string) string {
+	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", r.info.Owner, r.info.Name, tag, name)
 }
 
-// getTags
-func (g *Repo) getTags() ([]tag, error) {
-	//tagsUrl := "https://api.Github.com/repos/" + api.Repo + "/verbis/tags"
-
-	resp, err := http.Get(tagsUrl)
+// getTags retrieves the latest tag information from
+// GitHub and returns a slice of tags containing
+// the name of the release.
+func (r *Repo) getTags() ([]tag, error) {
+	resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/tags", r.info.Owner, r.info.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -151,18 +226,4 @@ func (g *Repo) getTags() ([]tag, error) {
 	}
 
 	return tags, nil
-}
-
-// LatestVersion
-func (g *Repo) LatestVersion() (string, error) {
-	tags, err := g.getTags()
-	if err != nil {
-		return "", err
-	}
-
-	if len(tags) < 1 {
-		return "", errors.New("repo has no tags")
-	}
-
-	return tags[0].Name, nil
 }
