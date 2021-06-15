@@ -18,6 +18,10 @@ type Paths struct {
 	TestDataPath string
 }
 
+const (
+	DataPath = "testdata"
+)
+
 // GetFileInfo retrieves the paths relevant for testing.
 func GetFileInfo() (*Paths, error) {
 	wd, err := os.Getwd()

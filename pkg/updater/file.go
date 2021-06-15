@@ -6,7 +6,7 @@ package updater
 
 import (
 	"errors"
-	fileio2 "github.com/ainsleyclark/updater/pkg/fileio"
+	"github.com/ainsleyclark/updater/internal/fileio"
 )
 
 type File struct {
@@ -18,7 +18,7 @@ type Files []File
 
 func (f Files) Validate() error {
 	for _, file := range f {
-		if !fileio2.FileExists(file.LocalPath) {
+		if !fileio.FileExists(file.LocalPath) {
 			return errors.New("no file or directory exists with the path: " + file.LocalPath)
 		}
 	}

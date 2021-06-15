@@ -7,34 +7,25 @@ package github
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	fileio2 "github.com/ainsleyclark/updater/internal/fileio"
 	"github.com/ainsleyclark/updater/pkg/checksum"
-	"github.com/ainsleyclark/updater/pkg/fileio"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"time"
 )
-
-type Provider interface {
-	Open() (err error)
-	Walk(walkFn WalkFunc) error
-	Close() error
-}
 
 type Repo struct {
 	RepositoryURL string
 	ArchiveName   string
 	ChecksumName  string
 	tempDir       string
-	archivePath   string
 	info          Information
-	reader        *zip.ReadCloser
 }
 
 // tag defines the data used to unmarshal the response from
@@ -90,6 +81,10 @@ func (r *Repo) LatestVersion() (string, error) {
 	return tags[0].Name, nil
 }
 
+// Download retrieves the relevant Github information, latest
+// tag and downloads the zip folder to a temporary
+// directory. A zip reader is the opened ready
+// for walking and copying files and folders.
 func (r *Repo) Download() (string, error) {
 	version, err := r.LatestVersion()
 	if err != nil {
@@ -103,13 +98,13 @@ func (r *Repo) Download() (string, error) {
 	}
 	defer resp.Body.Close()
 
-	r.tempDir, err = fileio.TempDirectory()
+	r.tempDir, err = fileio2.TempDirectory()
 	if err != nil {
 		return "", err
 	}
 
-	r.archivePath = filepath.Join(r.tempDir, r.ArchiveName)
-	archiveFile, err := os.Create(r.archivePath)
+	zipPath := filepath.Join(r.tempDir, r.ArchiveName)
+	archiveFile, err := os.Create(zipPath)
 	if err != nil {
 		return "", err
 	}
@@ -122,150 +117,27 @@ func (r *Repo) Download() (string, error) {
 
 	// Compare checksums if a name is set.
 	if r.ChecksumName != "" {
-		err := checksum.Compare(r.getDownloadUrl(version, r.ChecksumName), r.archivePath)
+		err := checksum.Compare(r.getDownloadUrl(version, r.ChecksumName), zipPath)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return r.archivePath, nil
+	return zipPath, nil
 }
 
-
-
-func (r *Repo) Open() error {
-	version, err := r.LatestVersion()
-	if err != nil {
-		return err
-	}
-
-	// Retrieve the zip folder
-	resp, err := http.Get(r.getDownloadUrl(version, r.ArchiveName))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	r.tempDir, err = fileio.TempDirectory()
-	if err != nil {
-		return err
-	}
-
-	r.archivePath = filepath.Join(r.tempDir, r.ArchiveName)
-	archiveFile, err := os.Create(r.archivePath)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(archiveFile, resp.Body)
-	archiveFile.Close()
-	if err != nil {
-		return err
-	}
-
-	// Compare checksums if a name is set.
-	if r.ChecksumName != "" {
-		err := checksum.Compare(r.getDownloadUrl(version, r.ChecksumName), r.archivePath)
-		if err != nil {
-			return err
-		}
-	}
-
-	r.reader, err = zip.OpenReader(r.archivePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// WalkFunc is used for walking over the repository and
-// collecting file info by iterating over the zip
-// file.
-type WalkFunc func(info *FileInfo) error
-
-// FileInfo defines the information sent back from the walk
-// function.
-type FileInfo struct {
-	Path     string
-	Mode     os.FileMode
-	Modified time.Time
-}
-
-// Walk iterates over the zip folder stored in a temporary
-// directory. If the zip does not exist or the zip
-// ReadCloser is nil, and error will be returned.
-func (r *Repo) Walk(walkFn WalkFunc) error {
-	if r.reader == nil {
-		return errors.New("nil zip.ReadCloser")
-	}
-
-	for _, f := range r.reader.File {
-		if f != nil {
-			err := walkFn(&FileInfo{
-				Path:     f.Name,
-				Mode:     f.Mode(),
-				Modified: f.Modified,
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (r *Repo) findZipFile(path string) (*zip.File, error) {
-	for _, f := range r.reader.File {
-		if path == f.Name {
-			return f, nil
-		}
-	}
-	return nil, fmt.Errorf("no zip file found with the path: %s", path)
-}
-
-func (r *Repo) Copy(src, dest string) error {
-	zipFile, err := r.findZipFile(src)
-	if err != nil {
-		return err
-	}
-
-	file, err := zipFile.Open()
-	if err != nil {
-		return err
-	}
-
-	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zipFile.Mode())
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, file)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Close removes the temporary directory used to store the
-// zip folder downloaded from Github. It then closes the
-// zip.ReaderCloser attached.
 func (r *Repo) Close() error {
 	if r.tempDir == "" {
 		return nil
 	}
-
 	err := os.RemoveAll(r.tempDir)
 	if err != nil {
 		return errors.New("error removing temp directory: " + err.Error())
 	}
 	r.tempDir = ""
-
-	return r.reader.Close()
+	return nil
 }
+
 
 // getDownloadUrl returns the URL of a download from the
 // repository based on the input tag name, and the name
@@ -282,10 +154,18 @@ func (r *Repo) getTags() ([]tag, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(string(body))
+	}
 
 	var tags []tag
-	err = json.NewDecoder(resp.Body).Decode(&tags)
+	err = json.Unmarshal(body, &tags)
 	if err != nil {
 		return nil, err
 	}

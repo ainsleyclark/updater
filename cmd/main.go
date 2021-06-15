@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 	"github.com/ainsleyclark/updater/pkg/github"
-	updater2 "github.com/ainsleyclark/updater/pkg/updater"
+	"github.com/ainsleyclark/updater/pkg/updater"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,14 +22,16 @@ func main() {
 
 	base := filepath.Dir(exec)
 
-	u := updater2.Updater{
+	u := updater.Updater{
 		Github: github.Repo{
 			RepositoryURL: "https://github.com/ainsleyclark/verbis",
 			ArchiveName:   fmt.Sprintf("verbis_%s_%s_%s.zip", "0.0.1", runtime.GOOS, runtime.GOARCH),
 			ChecksumName:  "checksums.txt",
 		},
-		Files: updater2.Files{
+		Files: updater.Files{
+			{RemotePath: "verbis/build/admin/**/css", LocalPath: filepath.Join(base, "admin")},
 			{RemotePath: "verbis/build/admin/**/**", LocalPath: filepath.Join(base, "admin")},
+			{RemotePath: "verbis/build/admin/index.html", LocalPath: filepath.Join(base, "index.html")},
 		},
 		Version:              "",
 		BackupExtension:      "",

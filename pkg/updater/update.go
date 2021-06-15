@@ -6,14 +6,20 @@ package updater
 
 import (
 	"errors"
-	"github.com/ainsleyclark/updater/pkg/fileio"
+	"fmt"
+	"github.com/ainsleyclark/updater/internal/fileio"
+	"github.com/ainsleyclark/updater/internal/patcher"
+	"github.com/ainsleyclark/updater/pkg/archive"
 	"github.com/ainsleyclark/updater/pkg/github"
-	"github.com/ainsleyclark/updater/pkg/patcher"
+	"github.com/gookit/color"
+	"github.com/mattn/go-zglob"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 )
+
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
@@ -29,12 +35,6 @@ var (
 	ErrLatestVersion = errors.New("at latest version")
 )
 
-type Options struct {
-}
-
-func New() {
-
-}
 
 func (u *Updater) Update() (err error) {
 	update, err := u.CanUpdate()
@@ -42,16 +42,34 @@ func (u *Updater) Update() (err error) {
 		return
 	}
 
-	err = u.Github.Open()
+	tempZip, err := u.Github.Download()
 	if err != nil {
-		return
+		return err
 	}
 	defer u.Github.Close()
 
-	err = u.walk()
+	a, err := archive.New(tempZip)
 	if err != nil {
-		return
+		return err
 	}
+
+	tmpArchive, err := fileio.TempDirectory()
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpArchive)
+
+	err = a.Copy(tmpArchive)
+	if err != nil {
+		return err
+	}
+
+	u.test(tmpArchive)
+	//
+	//err = u.walk(tmpArchive)
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
@@ -75,45 +93,46 @@ func (u *Updater) CanUpdate() (bool, error) {
 	return true, nil
 }
 
+
 // get the currently running executable name
 //
 
-func (u *Updater) walk() error {
-	err := u.Github.Walk(func(info *github.FileInfo) error {
-		// Update executable
-		if info.Mode.IsRegular() && info.Path == u.RemoteExecutablePath {
-			err := u.updateExecutable(info)
-			if err != nil {
-				return err
-			}
+func (u *Updater) walk(src string) error {
+	err := filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
+	 	if entry.IsDir() {
+			return nil
 		}
-		// Update any files
-		err := u.updateFiles(info)
+
+		relativePath := strings.ReplaceAll(path, src + string(os.PathSeparator), "")
+
+		//// Check for executable and update
+		//if relativePath == u.RemoteExecutablePath {
+		//	err := u.updateExecutable(path)
+		//	if err != nil {
+		//		return err
+		//	}
+		//}
+
+		// Check for files and folders and update
+		err = u.updateFiles(src, relativePath, entry)
 		if err != nil {
 			return err
 		}
+
 		return nil
 	})
+
+
+
+
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (u *Updater) updateExecutable(info *github.FileInfo) error {
-	tmp, err := fileio.TempDirectory()
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmp)
-
-	paths, err := fileio.GetPaths()
-	if err != nil {
-		return err
-	}
-
-	tmpExec := filepath.Join(tmp, paths.Base)
-	err = u.Github.Copy(info.Path, tmpExec)
+func (u *Updater) updateExecutable(path string) error {
+	exec, err := fileio.Executable()
 	if err != nil {
 		return err
 	}
@@ -124,18 +143,19 @@ func (u *Updater) updateExecutable(info *github.FileInfo) error {
 	}
 
 	p := patcher.Patcher{
-		SourcePath:      tmpExec,
-		DestinationPath: paths.ExecutableName,
-		BackupPath:      paths.ExecutableName + u.BackupExtension,
+		SourcePath:      path,
+		DestinationPath: exec,
+		BackupPath:     exec + u.BackupExtension,
 		Mode:            0755,
 	}
 
 	return p.Apply()
 }
 
-func (u *Updater) updateFiles(info *github.FileInfo) error {
+func (u *Updater) updateFiles(tmpDir string, p string, entry fs.DirEntry) error {
+	var matches []string
 	for _, f := range u.Files {
-		match, err := path.Match(f.RemotePath, info.Path)
+		match, err := zglob.Match(f.RemotePath, p)
 		if err != nil {
 			return err
 		}
@@ -144,21 +164,59 @@ func (u *Updater) updateFiles(info *github.FileInfo) error {
 			continue
 		}
 
-		relative, err := filepath.Rel(f.RemotePath, info.Path)
+		// TODO:
+		// Account for files only e.g index.html
+
+		relative, err := filepath.Rel(f.RemotePath, p)
 		if err != nil {
 			return err
 		}
 
 		dest := path.Join(f.LocalPath, strings.ReplaceAll(relative, "../", ""))
-		err = os.MkdirAll(path.Dir(dest), os.ModePerm)
-		if err != nil {
-			return err
-		}
 
-		err = u.Github.Copy(info.Path, dest)
-		if err != nil {
-			return err
-		}
+		matches = append(matches, dest)
 	}
+
+
+
+
 	return nil
 }
+
+
+func (u *Updater) test(archiveDir string) {
+	//var result = make(map[string][]string)
+	for _, f := range u.Files {
+		matches, err := zglob.Glob(filepath.Join(archiveDir,f.RemotePath))
+		if err != nil {
+			return
+		}
+
+		for _, v := range matches {
+			cleanedFile := strings.ReplaceAll(v, archiveDir + string(os.PathSeparator), "")
+
+			path, err := u.relativePath(f.RemotePath, cleanedFile)
+			if err != nil {
+				return
+			}
+
+			color.Yellow.Println("Relative: ", path)
+			color.Red.Println("Source: ", v)
+			color.Blue.Println("Destination: ", filepath.Join(f.LocalPath, path))
+			fmt.Println("-------------")
+		}
+	}
+
+}
+
+func (u *Updater) relativePath(base, target string) (string, error) {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." {
+		return "", nil
+	}
+	return strings.ReplaceAll(rel, "../", ""), nil
+}
+
