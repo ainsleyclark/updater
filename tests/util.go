@@ -14,7 +14,7 @@ const (
 )
 
 type Paths struct {
-	BasePath string
+	BasePath     string
 	TestDataPath string
 }
 
