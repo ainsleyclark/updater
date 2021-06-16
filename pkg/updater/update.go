@@ -6,20 +6,16 @@ package updater
 
 import (
 	"errors"
-	"fmt"
+	"github.com/ainsleyclark/updater/internal/archive"
 	"github.com/ainsleyclark/updater/internal/fileio"
 	"github.com/ainsleyclark/updater/internal/patcher"
-	"github.com/ainsleyclark/updater/pkg/archive"
 	"github.com/ainsleyclark/updater/pkg/github"
-	"github.com/gookit/color"
 	"github.com/mattn/go-zglob"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
-
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
@@ -29,17 +25,25 @@ type Updater struct {
 	Version              string
 	BackupExtension      string
 	RemoteExecutablePath string
+	mover patcher.Mover
 }
+
+const (
+	DefaultBackupExtension = ".bak"
+)
 
 var (
 	ErrLatestVersion = errors.New("at latest version")
 )
 
-
 func (u *Updater) Update() (err error) {
 	update, err := u.CanUpdate()
 	if err != nil || !update {
 		return
+	}
+
+	if u.BackupExtension == "" {
+		u.BackupExtension = DefaultBackupExtension
 	}
 
 	tempZip, err := u.Github.Download()
@@ -64,14 +68,19 @@ func (u *Updater) Update() (err error) {
 		return err
 	}
 
-	u.test(tmpArchive)
-	//
-	//err = u.walk(tmpArchive)
+	u.mover = patcher.New()
+
+	err = u.updateExecutable(tmpArchive)
+	if err != nil {
+		return err
+	}
+
+	//err = u.updateFiles(tmpArchive)
 	//if err != nil {
 	//	return err
 	//}
 
-	return nil
+	return u.mover.Apply()
 }
 
 func (u *Updater) LatestVersion() (string, error) {
@@ -93,130 +102,69 @@ func (u *Updater) CanUpdate() (bool, error) {
 	return true, nil
 }
 
-
-// get the currently running executable name
-//
-
-func (u *Updater) walk(src string) error {
-	err := filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
-	 	if entry.IsDir() {
-			return nil
-		}
-
-		relativePath := strings.ReplaceAll(path, src + string(os.PathSeparator), "")
-
-		//// Check for executable and update
-		//if relativePath == u.RemoteExecutablePath {
-		//	err := u.updateExecutable(path)
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
-
-		// Check for files and folders and update
-		err = u.updateFiles(src, relativePath, entry)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-
-
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (u *Updater) updateExecutable(path string) error {
+//nolint
+func (u *Updater) updateExecutable(archiveDir string) error {
 	exec, err := fileio.Executable()
 	if err != nil {
 		return err
 	}
 
-	// Need a health check
-	if u.BackupExtension == "" {
-		u.BackupExtension = ".bak"
-	}
-
-	p := patcher.Patcher{
-		SourcePath:      path,
-		DestinationPath: exec,
-		BackupPath:     exec + u.BackupExtension,
-		Mode:            0755,
-	}
-
-	return p.Apply()
-}
-
-func (u *Updater) updateFiles(tmpDir string, p string, entry fs.DirEntry) error {
-	var matches []string
-	for _, f := range u.Files {
-		match, err := zglob.Match(f.RemotePath, p)
-		if err != nil {
-			return err
+	err = filepath.WalkDir(archiveDir, func(path string, d fs.DirEntry, err error) error {
+		relativePath := strings.ReplaceAll(path, archiveDir+string(os.PathSeparator), "")
+		if relativePath == u.RemoteExecutablePath {
+			p := patcher.Patcher{
+				DestinationPath: exec,
+				BackupPath:      exec + u.BackupExtension,
+			}
+			p.AddFile(&patcher.File{
+				SourcePath:      path,
+				DestinationPath: exec,
+				Mode:            0755,
+			})
+			u.mover.AddPatcher(p)
 		}
-
-		if !match {
-			continue
-		}
-
-		// TODO:
-		// Account for files only e.g index.html
-
-		relative, err := filepath.Rel(f.RemotePath, p)
-		if err != nil {
-			return err
-		}
-
-		dest := path.Join(f.LocalPath, strings.ReplaceAll(relative, "../", ""))
-
-		matches = append(matches, dest)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-
-
-
-
 	return nil
 }
 
-
-func (u *Updater) test(archiveDir string) {
-	//var result = make(map[string][]string)
+func (u *Updater) updateFiles(archiveDir string) error {
 	for _, f := range u.Files {
-		matches, err := zglob.Glob(filepath.Join(archiveDir,f.RemotePath))
+		src := filepath.Join(archiveDir, f.RemotePath)
+
+		// This should be a validate function of files
+		matches, err := zglob.Glob(src)
 		if err != nil {
-			return
+			return err
+		}
+
+		p := patcher.Patcher{
+			DestinationPath: f.LocalPath,
+			BackupPath:      f.LocalPath + u.BackupExtension,
 		}
 
 		for _, v := range matches {
-			cleanedFile := strings.ReplaceAll(v, archiveDir + string(os.PathSeparator), "")
-
-			path, err := u.relativePath(f.RemotePath, cleanedFile)
+			cleanedFile := strings.ReplaceAll(v, archiveDir+string(os.PathSeparator), "")
+			path, err := fileio.SplitPaths(f.RemotePath, cleanedFile)
 			if err != nil {
-				return
+				return err
 			}
-
-			color.Yellow.Println("Relative: ", path)
-			color.Red.Println("Source: ", v)
-			color.Blue.Println("Destination: ", filepath.Join(f.LocalPath, path))
-			fmt.Println("-------------")
+			stat, err := os.Stat(v)
+			if err != nil {
+				return err
+			}
+			p.AddFile(&patcher.File{
+				SourcePath:      v,
+				DestinationPath: filepath.Join(f.LocalPath, path),
+				Mode:            stat.Mode(),
+			})
 		}
-	}
 
+		u.mover.AddPatcher(p)
+	}
+	
+	return nil
 }
-
-func (u *Updater) relativePath(base, target string) (string, error) {
-	rel, err := filepath.Rel(base, target)
-	if err != nil {
-		return "", err
-	}
-	if rel == "." {
-		return "", nil
-	}
-	return strings.ReplaceAll(rel, "../", ""), nil
-}
-

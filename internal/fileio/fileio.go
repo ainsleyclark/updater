@@ -8,6 +8,8 @@ import (
 	"github.com/kardianos/osext"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -16,9 +18,9 @@ const (
 	TempDirName = "verbis-updater"
 )
 
-// FileExists checks to see if a file or directory exists
+// Exists checks to see if a file or directory exists
 // by the given path.
-func FileExists(path string) bool {
+func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
 }
@@ -27,7 +29,7 @@ func FileExists(path string) bool {
 // directory. Returns false if it is a file.
 func IsDirectory(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
-	if err != nil{
+	if err != nil {
 		return false, err
 	}
 	return fileInfo.IsDir(), err
@@ -43,4 +45,17 @@ func Executable() (string, error) {
 // a path upon success.
 func TempDirectory() (string, error) {
 	return ioutil.TempDir("", TempDirName)
+}
+
+// SplitPaths
+func SplitPaths(base, target string) (string, error) {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." {
+		return "", nil
+	}
+	// TODO: Check on Windows
+	return strings.ReplaceAll(rel, ".."+string(os.PathSeparator), ""), nil
 }

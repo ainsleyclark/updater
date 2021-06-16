@@ -29,16 +29,14 @@ func main() {
 			ChecksumName:  "checksums.txt",
 		},
 		Files: updater.Files{
-			{RemotePath: "verbis/build/admin/**/css", LocalPath: filepath.Join(base, "admin")},
-			{RemotePath: "verbis/build/admin/**/**", LocalPath: filepath.Join(base, "admin")},
+			//{RemotePath: "verbis/build/admin/**/css", LocalPath: filepath.Join(base, "admin")},
 			{RemotePath: "verbis/build/admin/index.html", LocalPath: filepath.Join(base, "index.html")},
+			{RemotePath: "verbis/build/admin/**/**", LocalPath: filepath.Join(base, "admin")},
 		},
 		Version:              "",
 		BackupExtension:      "",
 		RemoteExecutablePath: "verbis/build/verbis",
 	}
-
-
 
 	fmt.Println(u.Update())
 }

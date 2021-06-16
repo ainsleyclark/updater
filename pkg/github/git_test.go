@@ -5,26 +5,38 @@
 package github
 
 import (
-	"fmt"
+	"encoding/json"
 	"github.com/ainsleyclark/updater/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
 func TestRepo_LatestVersion(t *testing.T) {
 	tt := map[string]struct {
-		input string
-		want  interface{}
+		apiUrl string
+		input  string
+		want   interface{}
 	}{
 		"Success": {
+			apiUrl,
 			tests.ReleaseRepo,
 			nil,
 		},
-		"Bad URL": {
+		"Bad Input URL": {
+			apiUrl,
 			"wrong",
-			"invalid github URL",
+			"invalid github url",
+		},
+		"Bad API URL": {
+			"wrong",
+			tests.ReleaseRepo,
+			"unsupported protocol scheme",
 		},
 		"No Tags": {
+			apiUrl,
 			"github.com/ainsleyclark/html-boilerplate",
 			"repo has no tags",
 		},
@@ -32,6 +44,12 @@ func TestRepo_LatestVersion(t *testing.T) {
 
 	for name, test := range tt {
 		t.Run(name, func(t *testing.T) {
+			orig := apiUrl
+			defer func() {
+				apiUrl = orig
+			}()
+			apiUrl = test.apiUrl
+
 			r := Repo{RepositoryURL: test.input}
 			got, err := r.LatestVersion()
 			if err != nil {
@@ -43,126 +61,148 @@ func TestRepo_LatestVersion(t *testing.T) {
 	}
 }
 
-func TestRepo_Walk(t *testing.T) {
+func TestRepo_Close(t *testing.T) {
 	tt := map[string]struct {
-		open bool
-		fn   func(info *FileInfo) error
-		want interface{}
+		input string
+		want  interface{}
 	}{
 		"Success": {
-			true,
-			func(info *FileInfo) error {
-				return nil
-			},
+			t.TempDir(),
 			nil,
 		},
-		"Nil ReaderCloser": {
-			false,
-			func(info *FileInfo) error {
-				return nil
-			},
-			"nil zip.ReadCloser",
+		"Remove Error": {
+			".",
+			"error removing temp directory",
 		},
-		"Walk Error": {
-			true,
-			func(info *FileInfo) error {
-				return fmt.Errorf("error")
-			},
-			"error",
+		"No Temp Dir": {
+			"",
+			nil,
 		},
 	}
 
 	for name, test := range tt {
 		t.Run(name, func(t *testing.T) {
-			r := Repo{
-				RepositoryURL: tests.ReleaseRepo,
-				ArchiveName:   "verbis_0.0.1_darwin_amd64.zip",
-			}
-
-			if test.open {
-				err := r.Open()
-				assert.NoError(t, err)
-				defer r.Close()
-			}
-
-			got := r.Walk(test.fn)
+			r := Repo{tempDir: test.input}
+			got := r.Close()
 			if got != nil {
-				assert.Contains(t, got.Error(), test.want)
+				require.Contains(t, got.Error(), test.want)
 				return
 			}
-
-			assert.Equal(t, test.want, got)
+			require.Equal(t, test.want, got)
 		})
 	}
 }
 
-func TestRepo_Close(t *testing.T) {
+func TestRepo_GetInfo(t *testing.T) {
 	tt := map[string]struct {
-		input Repo
-		open  bool
+		input string
 		want  interface{}
 	}{
 		"Success": {
-			Repo{
-				RepositoryURL: tests.ReleaseRepo,
-				ArchiveName:   "verbis_0.0.1_darwin_amd64.zip",
-			},
-			true,
-			nil,
+			"https://github.com/tom/repo",
+			information{Owner: "tom", Name: "repo"},
 		},
-		"Remove Error": {
-			Repo{tempDir: "."},
-			false,
-			"error removing temp directory",
-		},
-		"No Temp Dir": {
-			Repo{
-				RepositoryURL: "wrong",
-				ArchiveName:   "",
-			},
-			false,
-			nil,
+		"Invalid URL": {
+			"wrong",
+			"invalid github url",
 		},
 	}
 
 	for name, test := range tt {
 		t.Run(name, func(t *testing.T) {
-			if test.open {
-				err := test.input.Open()
-				assert.NoError(t, err)
-			}
-
-			got := test.input.Close()
-			if got != nil {
-				assert.Contains(t, got.Error(), test.want)
+			r := Repo{RepositoryURL: test.input}
+			err := r.getInfo()
+			if err != nil {
+				require.Contains(t, err.Error(), test.want)
 				return
 			}
+			require.Equal(t, test.want, r.info)
+		})
+	}
+}
 
-			assert.Equal(t, test.want, got)
+func TestRepo_GetDownloadURL(t *testing.T) {
+	tt := map[string]struct {
+		info information
+		tag  string
+		name string
+		want interface{}
+	}{
+		"Simple": {
+			information{Owner: "tom", Name: "repo"},
+			"0.0.1",
+			"archive.zip",
+			"https://github.com/tom/repo/releases/download/0.0.1/archive.zip",
+		},
+	}
+
+	for name, test := range tt {
+		t.Run(name, func(t *testing.T) {
+			r := Repo{info: test.info}
+			got := r.getDownloadURL(test.tag, test.name)
+			require.Equal(t, test.want, got)
 		})
 	}
 }
 
 func TestRepo_GetTags(t *testing.T) {
 	tt := map[string]struct {
-		input Information
-		want  interface{}
+		handler http.HandlerFunc
+		want    interface{}
 	}{
 		"Success": {
-			Information{Owner: "cli", Name: "cli"},
-			nil,
+			func(w http.ResponseWriter, r *http.Request) {
+				bytes, err := json.Marshal([]tag{{Name: "0.0.1"}})
+				require.NoError(t, err)
+				_, err = w.Write(bytes)
+				require.NoError(t, err)
+			},
+			[]tag{{Name: "0.0.1"}},
+		},
+		"Mismatch Status": {
+			func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, err := w.Write([]byte("error"))
+				require.NoError(t, err)
+			},
+			"error",
+		},
+		"Unmarshal Error": {
+			func(w http.ResponseWriter, r *http.Request) {},
+			"unexpected end of JSON input",
 		},
 	}
 
 	for name, test := range tt {
 		t.Run(name, func(t *testing.T) {
-			r := Repo{info: test.input}
+			ts := httptest.NewServer(test.handler)
+			defer ts.Close()
+
+			orig := apiUrl
+			defer func() {
+				apiUrl = orig
+			}()
+			apiUrl = ts.URL
+
+			r := Repo{}
 			got, err := r.getTags()
 			if err != nil {
-				assert.Contains(t, err.Error(), test.want)
+				require.Contains(t, err.Error(), test.want)
 				return
 			}
-			assert.NotEmpty(t, got)
+
+			require.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestRepo_GetTagsErorr(t *testing.T) {
+	orig := apiUrl
+	defer func() {
+		apiUrl = orig
+	}()
+	apiUrl = "wrong"
+	r := Repo{}
+	_, err := r.getTags()
+	require.Error(t, err)
 }

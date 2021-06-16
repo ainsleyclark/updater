@@ -12,13 +12,14 @@ import (
 type File struct {
 	LocalPath  string
 	RemotePath string
+	Modifier   func(path string)
 }
 
 type Files []File
 
 func (f Files) Validate() error {
 	for _, file := range f {
-		if !fileio.FileExists(file.LocalPath) {
+		if !fileio.Exists(file.LocalPath) {
 			return errors.New("no file or directory exists with the path: " + file.LocalPath)
 		}
 	}

@@ -4,14 +4,12 @@
 
 package github
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	fileio2 "github.com/ainsleyclark/updater/internal/fileio"
-	"github.com/ainsleyclark/updater/pkg/checksum"
+	"github.com/ainsleyclark/updater/internal/checksum"
+	"github.com/ainsleyclark/updater/internal/fileio"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -20,13 +18,24 @@ import (
 	"regexp"
 )
 
+// Repo defines the Github repository to obtain the update.
+// The repository URL must match a github.com account
+// and the archive name must be valid. Checksums
+// are entirely optional and can be omitted
+// if they are not to be validated once
+// downloaded.
 type Repo struct {
 	RepositoryURL string
 	ArchiveName   string
 	ChecksumName  string
 	tempDir       string
-	info          Information
+	info          information
 }
+
+var (
+	baseUrl = "https://github.com"
+	apiUrl  = "https://api.github.com"
+)
 
 // tag defines the data used to unmarshal the response from
 // github. `Name` is only required to compare versions
@@ -35,28 +44,12 @@ type tag struct {
 	Name string `json:"name"`
 }
 
-// Information contains the name and owner of the repository
+// information contains the name and owner of the repository
 // used for obtaining tags, archive URL and checksums
 // if they are attached.
-type Information struct {
+type information struct {
 	Owner string
 	Name  string
-}
-
-// getInfo returns the owner and name of the github url
-// using regex. An error will be returned if the url
-// is invalid.
-func (r *Repo) getInfo() error {
-	re := regexp.MustCompile(`github\.com/(.*?)/(.*?)$`)
-	submatches := re.FindAllStringSubmatch(r.RepositoryURL, 1)
-	if len(submatches) < 1 {
-		return errors.New("invalid github URL:" + r.RepositoryURL)
-	}
-	r.info = Information{
-		Owner: submatches[0][1],
-		Name:  submatches[0][2],
-	}
-	return nil
 }
 
 // LatestVersion retrieves the latest release (tags) from
@@ -92,13 +85,13 @@ func (r *Repo) Download() (string, error) {
 	}
 
 	// Retrieve the zip folder
-	resp, err := http.Get(r.getDownloadUrl(version, r.ArchiveName))
+	resp, err := http.Get(r.getDownloadURL(version, r.ArchiveName))
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	r.tempDir, err = fileio2.TempDirectory()
+	r.tempDir, err = fileio.TempDirectory()
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +110,7 @@ func (r *Repo) Download() (string, error) {
 
 	// Compare checksums if a name is set.
 	if r.ChecksumName != "" {
-		err := checksum.Compare(r.getDownloadUrl(version, r.ChecksumName), zipPath)
+		err := checksum.Compare(r.getDownloadURL(version, r.ChecksumName), zipPath)
 		if err != nil {
 			return "", err
 		}
@@ -126,6 +119,9 @@ func (r *Repo) Download() (string, error) {
 	return zipPath, nil
 }
 
+// Close removes the temporary directory the zip folder
+// is stored in. An error will be returned if the
+// temporary dir could not be removed.
 func (r *Repo) Close() error {
 	if r.tempDir == "" {
 		return nil
@@ -138,19 +134,34 @@ func (r *Repo) Close() error {
 	return nil
 }
 
+// getInfo returns the owner and name of the github url
+// using regex. An error will be returned if the url
+// is invalid.
+func (r *Repo) getInfo() error {
+	re := regexp.MustCompile(`github\.com/(.*?)/(.*?)$`)
+	submatches := re.FindAllStringSubmatch(r.RepositoryURL, 1)
+	if len(submatches) < 1 {
+		return errors.New("invalid github url:" + r.RepositoryURL)
+	}
+	r.info = information{
+		Owner: submatches[0][1],
+		Name:  submatches[0][2],
+	}
+	return nil
+}
 
-// getDownloadUrl returns the URL of a download from the
+// getDownloadURL returns the URL of a download from the
 // repository based on the input tag name, and the name
 // of the archive (could be a zip or checksums.txt).
-func (r *Repo) getDownloadUrl(tag string, name string) string {
-	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", r.info.Owner, r.info.Name, tag, name)
+func (r *Repo) getDownloadURL(tag, name string) string {
+	return fmt.Sprintf("%s/%s/%s/releases/download/%s/%s", baseUrl, r.info.Owner, r.info.Name, tag, name)
 }
 
 // getTags retrieves the latest tag information from
 // GitHub and returns a slice of tags containing
 // the name of the release.
 func (r *Repo) getTags() ([]tag, error) {
-	resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/tags", r.info.Owner, r.info.Name))
+	resp, err := http.Get(fmt.Sprintf("%s/repos/%s/%s/tags", apiUrl, r.info.Owner, r.info.Name))
 	if err != nil {
 		return nil, err
 	}
