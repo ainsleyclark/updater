@@ -12,6 +12,7 @@ import (
 type Patcher interface {
 	Update() (Status, error)
 	HasUpdate() (bool, error)
+	LatestVersion() (string, error)
 }
 
 type Updater struct {
@@ -38,6 +39,10 @@ func New(opts *Options) (*Updater, error) {
 
 func (u *Updater) HasUpdate() (bool, error) {
 	return u.pkg.CanUpdate()
+}
+
+func (u *Updater) LatestVersion() (string, error) {
+	return u.pkg.GetLatestVersion()
 }
 
 func (u *Updater) Update() (Status, error) {
