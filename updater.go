@@ -46,11 +46,17 @@ func (u *Updater) LatestVersion() (string, error) {
 }
 
 func (u *Updater) Update(archive string) (Status, error) {
-	u.opts.RepositoryURL = archive
+	u.pkg.Provider = &provider.Github{
+		RepositoryURL: u.opts.RepositoryURL,
+		ArchiveName:   archive,
+	}
+
 	update, err := u.pkg.Update()
 	status := getExecStatus(update)
+
 	if err != nil {
 		return status, err
 	}
+
 	return status, nil
 }

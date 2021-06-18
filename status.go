@@ -28,3 +28,4 @@ func getExecStatus(status updater.UpdateStatus) Status {
 	}
 	return Unknown
 }
+
