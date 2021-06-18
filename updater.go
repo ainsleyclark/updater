@@ -10,7 +10,7 @@ import (
 )
 
 type Patcher interface {
-	Update() (Status, error)
+	Update(archive string) (Status, error)
 	HasUpdate() (bool, error)
 	LatestVersion() (string, error)
 }
@@ -30,7 +30,7 @@ func New(opts *Options) (*Updater, error) {
 		pkg: &updater.Updater{
 			Provider: &provider.Github{
 				RepositoryURL: opts.RepositoryURL,
-				ArchiveName:   opts.ArchiveName,
+				ArchiveName:   "",
 			},
 			Version: opts.Version,
 		},
@@ -45,7 +45,8 @@ func (u *Updater) LatestVersion() (string, error) {
 	return u.pkg.GetLatestVersion()
 }
 
-func (u *Updater) Update() (Status, error) {
+func (u *Updater) Update(archive string) (Status, error) {
+	u.opts.RepositoryURL = archive
 	update, err := u.pkg.Update()
 	status := getExecStatus(update)
 	if err != nil {
