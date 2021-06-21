@@ -3,3 +3,11 @@
 // license that can be found in the LICENSE file.
 
 package updater
+
+import (
+	"testing"
+)
+
+func TestUpdater_VerifyInstallation(t *testing.T) {
+	t.Skipf("TODO")
+}

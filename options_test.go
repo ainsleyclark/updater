@@ -18,7 +18,7 @@ func TestOptions_Validate(t *testing.T) {
 		want    interface{}
 	}{
 		"Success": {
-			Options{RepositoryURL: "/updater"},
+			Options{RepositoryURL: "/migrator"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
@@ -37,7 +37,7 @@ func TestOptions_Validate(t *testing.T) {
 			"no such host",
 		},
 		"Invalid Status Code": {
-			Options{RepositoryURL: "/updater"},
+			Options{RepositoryURL: "/migrator"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},

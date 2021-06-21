@@ -17,7 +17,7 @@ type Patcher interface {
 
 type Updater struct {
 	opts *Options
-	pkg  *updater.Updater
+	pkg  *migrator.Updater
 }
 
 func New(opts *Options) (*Updater, error) {
@@ -27,7 +27,7 @@ func New(opts *Options) (*Updater, error) {
 	}
 	return &Updater{
 		opts: opts,
-		pkg: &updater.Updater{
+		pkg: &migrator.Updater{
 			Provider: &provider.Github{
 				RepositoryURL: opts.RepositoryURL,
 				ArchiveName:   "",

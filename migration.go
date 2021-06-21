@@ -112,18 +112,18 @@ func (m *Migration) hasCallBack() bool {
 // Sort migrationRegistry is a type that implements the
 // sort.Interface interface so that versions can be
 // sorted.
-func (r migrationRegistry) Sort() {
-	sort.Sort(r)
+func (m migrationRegistry) Sort() {
+	sort.Sort(m)
 }
 
-func (r migrationRegistry) Len() int {
-	return len(r)
+func (m migrationRegistry) Len() int {
+	return len(m)
 }
 
-func (r migrationRegistry) Less(i, j int) bool {
-	return r[i].toSemVer().LessThan(r[j].toSemVer())
+func (m migrationRegistry) Less(i, j int) bool {
+	return m[i].toSemVer().LessThan(m[j].toSemVer())
 }
 
-func (r migrationRegistry) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
+func (m migrationRegistry) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
 }

@@ -17,7 +17,7 @@ const (
 	Updated                = 4
 )
 
-func getExecStatus(status updater.UpdateStatus) Status {
+func getExecStatus(status migrator.UpdateStatus) Status {
 	switch status {
 	case updater.Unknown:
 		return ExecutableError

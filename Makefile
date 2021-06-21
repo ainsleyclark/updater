@@ -4,6 +4,9 @@ format:
 lint:
 	golangci-lint run ./...
 
+mock:
+	rm -rf mocks && mockery --all --keeptree
+
 test:
 	go clean -testcache && go test -race $$(go list ./... | grep -v tests)
 

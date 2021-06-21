@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// Options define the core arguments parsed to the updater.
+// Options define the core arguments parsed to the migrator.
 type Options struct {
 	// The URL of the GitHub Repository to obtain the
 	// executable from.
@@ -37,7 +37,7 @@ var (
 )
 
 // Validate check's to see if the options are valid before
-// returning a new updater.
+// returning a new migrator.
 func (o *Options) Validate() error {
 	if o.RepositoryURL == "" {
 		return errors.New("no repo url provided")
