@@ -18,26 +18,31 @@ func TestOptions_Validate(t *testing.T) {
 		want    interface{}
 	}{
 		"Success": {
-			Options{RepositoryURL: "/migrator"},
+			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
 			nil,
 		},
 		"No Repo": {
-			Options{},
+			Options{Version: "0.0.1"},
 			nil,
 			"no repo url provided",
 		},
+		"No Version": {
+			Options{RepositoryURL: "url"},
+			nil,
+			"no version provided",
+		},
 		"Bad URL": {
-			Options{RepositoryURL: "https://"},
+			Options{RepositoryURL: "https://", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},
 			"no such host",
 		},
 		"Invalid Status Code": {
-			Options{RepositoryURL: "/migrator"},
+			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},

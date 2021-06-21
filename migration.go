@@ -22,15 +22,15 @@ type Migration struct {
 	// CallBackUp is a function called when the migration
 	// is going up, this can be useful when manipulating
 	// files and directories for the current version.
-	CallBackUp    CallBackFn
+	CallBackUp CallBackFn
 	// CallBackUp is a function called when the migration
 	// is going down, this is only called if an update
 	// failed. And must be provided if CallBackUp is
 	// defined.
-	CallBackDown  CallBackFn
+	CallBackDown CallBackFn
 	// Stage defines the release stage of the migration such as
 	// Major, Minor or Patch,
-	Stage         Stage
+	Stage Stage
 }
 
 // CallBackFn is the function type when migrations are

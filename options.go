@@ -17,6 +17,8 @@ type Options struct {
 	// The URL of the GitHub Repository to obtain the
 	// executable from.
 	RepositoryURL string
+	// The currently running version.
+	Version string
 	// If set to true, updates will be verified by checking the
 	// newly downloaded executable version number using the
 	// -version flag.
@@ -41,6 +43,10 @@ var (
 func (o *Options) Validate() error {
 	if o.RepositoryURL == "" {
 		return errors.New("no repo url provided")
+	}
+
+	if o.Version == "" {
+		return errors.New("no version provided")
 	}
 
 	resp, err := http.Get(o.RepositoryURL)

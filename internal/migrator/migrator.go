@@ -17,8 +17,8 @@ type migrator struct {
 	downFuncs []func() error
 }
 
-func New(db database.Driver) (*migrator, error) {
-	tx, err := db.DB().Begin()
+func New(db *sql.DB) (*migrator, error) {
+	tx, err := db.Begin()
 	if err != nil {
 		return nil, err
 	}
