@@ -10,14 +10,17 @@ import (
 	"github.com/mouuff/go-rocket-update/pkg/updater"
 )
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||
+// Patcher describes the set of methods used for determining
+// if the application has any updates, retrieving the
+// latest version and running migrations.
 type Patcher interface {
 	Update(archive string) (Status, error)
 	HasUpdate() (bool, error)
 	LatestVersion() (string, error)
 }
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||
+// Updater represents the library for updating golang
+// executables and running migrations.
 type Updater struct {
 	opts    Options
 	pkg     *updater.Updater
@@ -92,7 +95,14 @@ func (u *Updater) Update(archive string) (Status, error) {
 		}
 	}
 
-	// Run any migrations
+	status, err = u.runMigrations()
+	if err != nil {
+		rollBackErr := u.pkg.Rollback()
+		if rollBackErr != nil {
+			return status, err
+		}
+		return status, err
+	}
 
 	return status, nil
 }

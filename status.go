@@ -24,12 +24,12 @@ const (
 	// CallBackError is returned by update when there was
 	// a error with one of the migration callbacks.
 	CallBackError = 3
-	// UpToDate status is used to define when the software is
-	// already up to date.
-	UpToDate = 4
+	// UpToDate status is used to define when the application
+	// is already up to date.
+	UpToDate = 5
 	// Updated is the success status code returned by Update
 	// when everything passed.
-	Updated = 5
+	Updated = 6
 )
 
 // getExecStatus transforms the pkg updater status into

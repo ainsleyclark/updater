@@ -9,7 +9,7 @@ import (
 	"github.com/gookit/color"
 )
 
-func (u *Updater) Run() (Status, error) {
+func (u *Updater) runMigrations() (Status, error) {
 	tx, err := u.opts.DB.Begin()
 	if err != nil {
 		return DatabaseError, err
@@ -32,7 +32,7 @@ func (u *Updater) Run() (Status, error) {
 				// In a dirty state
 				return Unknown, rollBackErr
 			}
-			//return err
+			return Unknown, err
 		}
 
 		down = append(down, migration.CallBackDown)
