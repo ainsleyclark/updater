@@ -53,7 +53,7 @@ func TestAddMigration(t *testing.T) {
 			Migration{Version: "v0.0.1", Stage: Minor, MigrationPath: "v0.0.1.sql"},
 			nil,
 		},
-		"No Version": {
+		"No version": {
 			Migration{Version: ""},
 			"no version provided for update",
 		},
@@ -61,7 +61,7 @@ func TestAddMigration(t *testing.T) {
 			Migration{Version: "v0.0.1"},
 			"no stage set",
 		},
-		"Bad Version": {
+		"Bad version": {
 			Migration{Version: "v1.3.3.3", MigrationPath: "test", Stage: Minor},
 			"invalid version",
 		},

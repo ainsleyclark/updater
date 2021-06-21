@@ -6,17 +6,34 @@ package updater
 
 import "github.com/mouuff/go-rocket-update/pkg/updater"
 
+// Status defines the status codes returned by the Update()
+// function used for debugging any issues with updating
+// the application.
 type Status int
 
 const (
 	// Unknown update status (something went wrong)
-	Unknown         Status = iota
-	DatabaseError          = 1
-	ExecutableError        = 2
-	UpToDate               = 3
-	Updated                = 4
+	Unknown Status = iota
+	// DatabaseError is returned by update when a database
+	// connection could not be established or there was
+	// an error processing the transaction.
+	DatabaseError = 1
+	// ExecutableError is returned by update when there was
+	// a error updating the executable from GitHub.
+	ExecutableError = 2
+	// CallBackError is returned by update when there was
+	// a error with one of the migration callbacks.
+	CallBackError = 3
+	// UpToDate status is used to define when the software is
+	// already up to date.
+	UpToDate = 4
+	// Updated is the success status code returned by Update
+	// when everything passed.
+	Updated = 5
 )
 
+// getExecStatus transforms the pkg updater status into
+// the Status codes listed above.
 func getExecStatus(status updater.UpdateStatus) Status {
 	switch status {
 	case updater.Unknown:

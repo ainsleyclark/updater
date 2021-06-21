@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package updater
+package testdata
 
-import (
-	"testing"
+import "embed"
+
+var (
+	//go:embed *.sql
+	Static embed.FS
 )
-
-func TestUpdater_VerifyInstallation(t *testing.T) {
-	t.Skipf("TODO")
-}

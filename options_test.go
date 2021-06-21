@@ -29,7 +29,7 @@ func TestOptions_Validate(t *testing.T) {
 			nil,
 			"no repo url provided",
 		},
-		"No Version": {
+		"No version": {
 			Options{RepositoryURL: "url"},
 			nil,
 			"no version provided",

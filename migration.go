@@ -14,7 +14,7 @@ import (
 // version.
 type Migration struct {
 	// The main version of the migration such as "v0.0.1"
-	Version       string
+	Version string
 	// The migration path relative to the embed.FS filesystem
 	// passed in options. This is optional and will be
 	// skipped if none is passed.

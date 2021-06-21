@@ -1,0 +1,1 @@
+UPDATE my_table SET name = 'clark' WHERE id = 1
