@@ -13,9 +13,9 @@ import (
 
 func TestOptions_Validate(t *testing.T) {
 	tt := map[string]struct {
-		input Options
+		input   Options
 		handler func(w http.ResponseWriter, r *http.Request)
-		want  interface{}
+		want    interface{}
 	}{
 		"Success": {
 			Options{RepositoryURL: "/updater"},

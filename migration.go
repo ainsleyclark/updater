@@ -10,29 +10,65 @@ import (
 	"sort"
 )
 
+// Migration represents a singular migration for a single
+// version.
 type Migration struct {
+	// The main version of the migration such as "v0.0.1"
 	Version       string
-	MajorVersion  int
+	// The migration path relative to the embed.FS filesystem
+	// passed in options. This is optional and will be
+	// skipped if none is passed.
 	MigrationPath string
+	// CallBackUp is a function called when the migration
+	// is going up, this can be useful when manipulating
+	// files and directories for the current version.
 	CallBackUp    CallBackFn
+	// CallBackUp is a function called when the migration
+	// is going down, this is only called if an update
+	// failed. And must be provided if CallBackUp is
+	// defined.
 	CallBackDown  CallBackFn
+	// Stage defines the release stage of the migration such as
+	// Major, Minor or Patch,
 	Stage         Stage
 }
 
+// CallBackFn is the function type when migrations are
+// running up or down.
 type CallBackFn func() error
 
+// migrationRegistry contains a slice of pointers to each
+// migration.
 type migrationRegistry []*Migration
 
+// migrations is the in memory registry store of
+// migrations.
 var migrations = make(migrationRegistry, 0)
 
 var (
+	// ErrCallBackMismatch is returned by AddMigration when
+	// there has been a mismatch in the amount of callbacks
+	// passed. Each migration should have two callbacks,
+	// one up and one down, or none at all.
 	ErrCallBackMismatch = errors.New("both CallBackUp and CallBackDown must be set")
 )
 
-// AddMigration add's a migration to the update registry which will be called when Update() is run.
-//
-//. the
+// GetMigration Retrieves a migration from the registry by
+// looking up the version. An error will be returned on
+// failed lookup.
+func GetMigration(version string) (*Migration, error) { //nolint
+	for _, m := range migrations {
+		if m.Version == version {
+			return m, nil
+		}
+	}
+	return nil, errors.New("no migration found with the version: " + version)
+}
 
+// AddMigration adds a migration to the update registry
+// which will be called when Update() is run. The
+// version and Stage must be attached to the
+// migration.
 func AddMigration(m *Migration) error {
 	if m.Version == "" {
 		return errors.New("no version provided for update")
@@ -40,10 +76,6 @@ func AddMigration(m *Migration) error {
 
 	if m.Stage == "" {
 		return errors.New("no stage set")
-	}
-
-	if m.MigrationPath == "" {
-		return errors.New("no migration path set")
 	}
 
 	if m.CallBackUp != nil && m.CallBackDown == nil {
@@ -54,20 +86,15 @@ func AddMigration(m *Migration) error {
 		return ErrCallBackMismatch
 	}
 
-	semVer := m.toSemVer()
-	seg := semVer.Segments()
-
-	if len(seg) != 3 { //nolint
-		return errors.New("invalid version: " + m.Version)
-	}
-
-	m.MajorVersion = seg[0]
+	_ = m.toSemVer() // Check to see if the version is valid
 
 	migrations = append(migrations, m)
 
 	return nil
 }
 
+// toSemVer parses the migration to version.Version, and
+// panics if the version is malformed.
 func (m *Migration) toSemVer() *version.Version {
 	semver, err := version.NewVersion(m.Version)
 	if err != nil {
@@ -76,8 +103,15 @@ func (m *Migration) toSemVer() *version.Version {
 	return semver
 }
 
-// Sort migrationRegistry is a type that implements the sort.Interface
-// interface so that versions can be sorted.
+// hasCallBack returns true if CallBackUp and CallBackDown
+// are both defined.
+func (m *Migration) hasCallBack() bool {
+	return m.CallBackUp != nil && m.CallBackDown != nil
+}
+
+// Sort migrationRegistry is a type that implements the
+// sort.Interface interface so that versions can be
+// sorted.
 func (r migrationRegistry) Sort() {
 	sort.Sort(r)
 }
@@ -92,8 +126,4 @@ func (r migrationRegistry) Less(i, j int) bool {
 
 func (r migrationRegistry) Swap(i, j int) {
 	r[i], r[j] = r[j], r[i]
-}
-
-func (m *Migration) hasCallBack() bool {
-	return m.CallBackUp != nil && m.CallBackDown != nil
 }
