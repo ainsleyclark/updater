@@ -10,11 +10,11 @@ type Status int
 
 const (
 	// Unknown update status (something went wrong)
-	Unknown Status = iota
-	DatabaseError = 1
-	ExecutableError = 2
-	UpToDate = 3
-	Updated = 4
+	Unknown         Status = iota
+	DatabaseError          = 1
+	ExecutableError        = 2
+	UpToDate               = 3
+	Updated                = 4
 )
 
 func getExecStatus(status updater.UpdateStatus) Status {
@@ -28,4 +28,3 @@ func getExecStatus(status updater.UpdateStatus) Status {
 	}
 	return Unknown
 }
-

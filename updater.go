@@ -32,7 +32,6 @@ func New(opts *Options) (*Updater, error) {
 				RepositoryURL: opts.RepositoryURL,
 				ArchiveName:   "",
 			},
-			Version: opts.Version,
 		},
 	}, nil
 }
@@ -57,6 +56,15 @@ func (u *Updater) Update(archive string) (Status, error) {
 	if err != nil {
 		return status, err
 	}
+
+	if u.opts.Verify {
+		err = u.verifyInstallation()
+		if err != nil {
+			return ExecutableError, err
+		}
+	}
+
+	// Run any migrations
 
 	return status, nil
 }
