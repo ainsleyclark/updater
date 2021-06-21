@@ -15,6 +15,8 @@ func (u *Updater) runMigrations() (Status, error) {
 		return DatabaseError, err
 	}
 
+	// TODO, what happens if there is no database but a callback?
+
 	migrations.Sort()
 
 	var down []CallBackFn
