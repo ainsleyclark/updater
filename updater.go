@@ -75,7 +75,7 @@ func (u *Updater) LatestVersion() (string, error) {
 // or callbacks. If there was an error in any
 // of the processes, the package will
 // rollback to the previous state.
-func (u *Updater) Update(archive string, updateExec bool) (Status, error) {
+func (u *Updater) Update(archive string) (Status, error) {
 	u.pkg.Provider = &provider.Github{
 		RepositoryURL: u.opts.GithubURL,
 		ArchiveName:   archive,
