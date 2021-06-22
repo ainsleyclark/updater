@@ -9,11 +9,9 @@ import (
 	"io/ioutil"
 )
 
-// db
-// migrations
-// version
-//
-
+// runMigrations sorts the migrations and loops over them.
+// If there is a migration to run it will be processed
+// and committed if the database exists.
 func (u *Updater) runMigrations() (Status, error) {
 	var (
 		err error
@@ -31,19 +29,19 @@ func (u *Updater) runMigrations() (Status, error) {
 
 	var down []CallBackFn
 	for _, migration := range migrations {
-		shouldRun := u.version.LessThanOrEqual(migration.toSemVer())
+		shouldRun := u.version.LessThan(migration.toSemVer())
 		if !shouldRun {
 			continue
 		}
 
-		err := u.process(migration, tx)
+		code, err := u.process(migration, tx)
 		if err != nil {
 			rollBackErr := u.rollBack(tx, down)
 			if rollBackErr != nil {
 				// In a dirty state
-				return Unknown, rollBackErr
+				return code, rollBackErr
 			}
-			return Unknown, err
+			return code, err
 		}
 
 		down = append(down, migration.CallBackDown)
@@ -59,10 +57,14 @@ func (u *Updater) runMigrations() (Status, error) {
 	return Updated, nil
 }
 
+// rollback reverse the changes from the database (if
+// there is one) and the callbacks.
 func (u *Updater) rollBack(tx *sql.Tx, down []CallBackFn) error {
-	err := tx.Rollback()
-	if err != nil {
-		return err
+	if u.opts.hasDB {
+		err := tx.Rollback()
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, fn := range down {
@@ -75,25 +77,28 @@ func (u *Updater) rollBack(tx *sql.Tx, down []CallBackFn) error {
 	return nil
 }
 
-func (u *Updater) process(m *Migration, tx *sql.Tx) error {
-	migration, err := ioutil.ReadAll(m.Migration)
+// process reads the migration and executes the migration
+// if there is one. Calls the callback function if there
+// is one set.
+func (u *Updater) process(m *Migration, tx *sql.Tx) (Status, error) {
+	migration, err := ioutil.ReadAll(m.SQL)
 	if err != nil {
-		return err
+		return Unknown, err
 	}
 
 	if u.opts.hasDB {
 		_, err = tx.Exec(string(migration))
 		if err != nil {
-			return err
+			return DatabaseError, err
 		}
 	}
 
 	if m.hasCallBack() {
 		err := m.CallBackUp()
 		if err != nil {
-			return err
+			return CallBackError, err
 		}
 	}
 
-	return nil
+	return Updated, nil
 }

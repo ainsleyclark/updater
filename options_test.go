@@ -5,6 +5,8 @@
 package updater
 
 import (
+	"fmt"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +17,7 @@ func TestOptions_Validate(t *testing.T) {
 	tt := map[string]struct {
 		input   Options
 		handler func(w http.ResponseWriter, r *http.Request)
+		db func(mock sqlmock.Sqlmock)
 		want    interface{}
 	}{
 		"Success": {
@@ -23,14 +26,17 @@ func TestOptions_Validate(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			},
 			nil,
+			nil,
 		},
 		"No Repo": {
 			Options{Version: "0.0.1"},
+			nil,
 			nil,
 			"no repo url provided",
 		},
 		"No version": {
 			Options{RepositoryURL: "url"},
+			nil,
 			nil,
 			"no version provided",
 		},
@@ -39,6 +45,7 @@ func TestOptions_Validate(t *testing.T) {
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},
+			nil,
 			"no such host",
 		},
 		"Invalid Status Code": {
@@ -46,7 +53,29 @@ func TestOptions_Validate(t *testing.T) {
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},
+			nil,
 			ErrRepositoryURL.Error(),
+		},
+		"With DB": {
+			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+			func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectPing()
+			},
+			ErrRepositoryURL.Error(),
+		},
+		 "Ping Error": {
+			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+			func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			func(mock sqlmock.Sqlmock) {
+				mock.ExpectPing().
+					WillReturnError(fmt.Errorf("ping error"))
+			},
+			"ping error",
 		},
 	}
 
@@ -57,9 +86,27 @@ func TestOptions_Validate(t *testing.T) {
 				defer ts.Close()
 				test.input.RepositoryURL = ts.URL + test.input.RepositoryURL
 			}
+
+			var mock sqlmock.Sqlmock
+
+			if test.db != nil {
+				db, m, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+				assert.NoError(t, err)
+				mock = m
+				test.db(mock)
+				test.input.DB = db
+			}
+
 			err := test.input.Validate()
 			if err != nil {
 				assert.Contains(t, err.Error(), test.want)
+			}
+
+			if test.db != nil {
+				err = mock.ExpectationsWereMet()
+				if err != nil {
+					t.Errorf("there were unfulfilled expectations: %s", err)
+				}
 			}
 		})
 	}

@@ -17,7 +17,7 @@ type Migration struct {
 	// The main version of the migration such as "v0.0.1"
 	Version string
 	// The migration file, byte value of the SQL migration.
-	Migration io.Reader
+	SQL io.Reader
 	// CallBackUp is a function called when the migration
 	// is going up, this can be useful when manipulating
 	// files and directories for the current version.

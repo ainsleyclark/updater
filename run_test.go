@@ -16,6 +16,7 @@ import (
 
 const (
 	v001 = "UPDATE my_table SET name = 'tom' WHERE id = 1"
+	v002 = "UPDATE my_table SET name = 'nick' WHERE id = 2"
 )
 
 type errReader int
@@ -34,7 +35,7 @@ func TestUpdater_Run(t *testing.T) {
 	}{
 		"Simple": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
 				m.ExpectBegin()
@@ -48,7 +49,7 @@ func TestUpdater_Run(t *testing.T) {
 		},
 		"Begin Error": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
 				m.ExpectBegin().
@@ -58,9 +59,38 @@ func TestUpdater_Run(t *testing.T) {
 			"error",
 			DatabaseError,
 		},
+		"Exec Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnError(fmt.Errorf("error"))
+				m.ExpectRollback()
+			},
+			true,
+			"error",
+			DatabaseError,
+		},
+		"RollBack Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnError(fmt.Errorf("error"))
+				m.ExpectRollback().
+					WillReturnError(fmt.Errorf("error"))
+			},
+			true,
+			"error",
+			DatabaseError,
+		},
 		"Commit Error": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
 				m.ExpectBegin()
@@ -75,21 +105,82 @@ func TestUpdater_Run(t *testing.T) {
 		},
 		"No Run": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.0", Migration: strings.NewReader(v001), Stage: Major},
+				&Migration{Version: "v0.0.0", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			nil,
 			false,
 			"error",
 			Updated,
 		},
-		"Bad Migration": {
+		"Bad SQL": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.0", Migration: errReader(1), Stage: Major},
+				&Migration{Version: "v0.0.1", SQL: errReader(1), Stage: Major},
 			},
 			nil,
 			false,
 			"error",
+			Unknown,
+		},
+		"With Callback": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
+					return nil
+				}, CallBackDown: func() error {
+					return nil
+				}},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectCommit()
+			},
+			true,
+			nil,
 			Updated,
+		},
+		"With Callback Up Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
+					return fmt.Errorf("error")
+				}, CallBackDown: func() error {
+					return nil
+				}},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectRollback()
+			},
+			true,
+			"error",
+			CallBackError,
+		},
+		"With Callback Down Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
+					return nil
+				}, CallBackDown: func() error {
+					return fmt.Errorf("callback error")
+				}},
+				&Migration{Version: "v0.0.2", SQL: strings.NewReader(v002), Stage: Major, CallBackUp: func() error {
+					return fmt.Errorf("error")
+				}, CallBackDown: func() error {
+					return nil
+				}},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectExec(v002).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectRollback()
+			},
+			true,
+			"callback error",
+			CallBackError,
 		},
 	}
 
@@ -112,12 +203,12 @@ func TestUpdater_Run(t *testing.T) {
 			u := Updater{
 				opts:    Options{
 					DB:            db,
-					Version:       "0.0.1",
+					Version:       "0.0.0",
 					RepositoryURL: "https://github.com/ainsleyclark/verbis",
 					hasDB: test.db,
 				},
 				pkg:     nil,
-				version: version.Must(version.NewVersion("0.0.1")),
+				version: version.Must(version.NewVersion("0.0.0")),
 			}
 
 			migrations = test.input

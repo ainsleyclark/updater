@@ -25,9 +25,9 @@ package updater_test
 //}
 //
 //func init() {
-//	err := updater.AddMigration(&updater.Migration{
+//	err := updater.AddMigration(&updater.SQL{
 //		Version:      "v0.0.2",
-//		Migration:    strings.NewReader("UPDATE my_table SET 'title' WHERE id = 1"),
+//		SQL:    strings.NewReader("UPDATE my_table SET 'title' WHERE id = 1"),
 //		CallBackUp:   func() error { return nil }, // Runs on up of migration.
 //		CallBackDown: func() error { return nil }, // Runs on error of migration.
 //		Stage:        updater.Patch,
