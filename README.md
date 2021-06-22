@@ -45,7 +45,8 @@ func init() {
 ```
 
 ### Creating the updater
-To create an updater, simply call `updater.New()` with options `Updater.Options{}` 
+To create an updater, simply call `updater.New()` with options `Updater.Options{}` The zip file is passed to the update
+function as well as an argument to skip updating the executable.
 
 ```go
 u, err := updater.New(updater.Options{
@@ -59,7 +60,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-status, err := u.Update(fmt.Sprintf("my-repo_v0.0.2_%s_%s.zip", runtime.GOOS, runtime.GOARCH))
+status, err := u.Update(fmt.Sprintf("my-repo_v0.0.2_%s_%s.zip", runtime.GOOS, runtime.GOARCH, false))
 if err != nil {
     return
 }
