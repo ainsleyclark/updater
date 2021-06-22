@@ -30,12 +30,12 @@ version right up until the remote GitHub version.
 
 ```go
 func init() {
-	err := updater.AddMigration(&updater.SQL{
+	err := updater.AddMigration(&updater.Migration{
 		Version:      "v0.0.2", // The version of the migration
-		SQL:    strings.NewReader("UPDATE my_table SET 'title' WHERE id = 1"),
+		SQL:          strings.NewReader("UPDATE my_table SET 'title' WHERE id = 1"),
 		CallBackUp:   func() error { return nil }, // Runs on up of migration.
 		CallBackDown: func() error { return nil }, // Runs on error of migration.
-		Stage:        updater.Patch, // Can be Patch, Major or Minor.
+		Stage:        updater.Patch,               // Can be Patch, Major or Minor.
 	})
 
 	if err != nil {
