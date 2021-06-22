@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Gopher" src="logo.svg" height="250" />
+  <img alt="Gopher" src="logo.png" height="250" />
   <h3 align="center">Updater</h3>
   <p align="center">Semantic updater and migrator for GoLang executables.</p>
   <p align="center">
