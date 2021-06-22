@@ -3,8 +3,8 @@
   <h3 align="center">Updater</h3>
   <p align="center">Semantic updater and migrator for GoLang executables.</p>
   <p align="center">
-    <a href="/LICENSE.md"><img alt="Software License" src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square"></a>
-    <a href='https://github.com/jpoles1/gopherbadger' target='_blank' src="coverage_badge.png"></a>
+    <a href="/LICENSE.md"><img alt="Software License" src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square" alt="License"></a>
+    <a href='https://github.com/jpoles1/gopherbadger' target='_blank'><img src="src="coverage_badge.png" alt="Coverage Badge"></a>
     <a href="https://pkg.go.dev/github.com/ainsleyclark/updater"><img src="https://godoc.org/github.com/ainsleyclark/updater?status.svg" alt="GoDoc"></a>
   </p>
 </p>
@@ -66,7 +66,6 @@ if err != nil {
 
 fmt.Println(status)
 ```
-
 
 ## Credits
 
