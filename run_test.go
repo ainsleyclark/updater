@@ -5,6 +5,7 @@
 package updater
 
 import (
+	"errors"
 	"fmt"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/hashicorp/go-version"
@@ -16,6 +17,12 @@ import (
 const (
 	v001 = "UPDATE my_table SET name = 'tom' WHERE id = 1"
 )
+
+type errReader int
+
+func (errReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("test error")
+}
 
 func TestUpdater_Run(t *testing.T) {
 	tt := map[string]struct {
@@ -66,7 +73,6 @@ func TestUpdater_Run(t *testing.T) {
 			"error",
 			DatabaseError,
 		},
-
 		"No Run": {
 			migrationRegistry{
 				&Migration{Version: "v0.0.0", Migration: strings.NewReader(v001), Stage: Major},
@@ -78,7 +84,7 @@ func TestUpdater_Run(t *testing.T) {
 		},
 		"Bad Migration": {
 			migrationRegistry{
-				&Migration{Version: "v0.0.0", Migration: nil, Stage: Major},
+				&Migration{Version: "v0.0.0", Migration: errReader(1), Stage: Major},
 			},
 			nil,
 			false,
