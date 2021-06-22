@@ -11,9 +11,9 @@
 
 ## Why? [![start with why](https://img.shields.io/badge/start%20with-why%3F-brightgreen.svg?style=flat)](http://www.ted.com/talks/simon_sinek_how_great_leaders_inspire_action)
 
-Updater aims to unify semantic migrations and executable updates in GoLang. You can seamlessly update executables and 
-run any SQL database migrations that depend on the specific version of the application. Callbacks can be passed
-to each migration allowing you to edit environment variables, or a directory structure.
+Updater aims to unify semantic migrations and executable updates using GitHub repositories in GoLang. You can 
+seamlessly update executables and run any SQL database migrations that depend on the specific version of the application. 
+Callbacks can be passed to each migration allowing you to edit environment variables, or a directory structure.
 
 ## Installation
 
@@ -24,8 +24,9 @@ go get -u github.com/ainsleyclark/updater
 ## Example
 
 ### Adding a migration
-Migrations are stored in memory, so you can call `AddMigration` from anywhere with as version number, SQL statement
-(optional) and CallBack functions (optional).
+Migrations are stored in memory, so you can call `AddMigration` from anywhere with a version number, SQL statement
+(optional) and CallBack functions (optional). When `Update()` is called, migrations will run from the the base
+version right up until the remote GitHub version.
 
 ```go
 func init() {
