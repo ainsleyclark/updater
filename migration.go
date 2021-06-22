@@ -7,6 +7,7 @@ package updater
 import (
 	"errors"
 	"github.com/hashicorp/go-version"
+	"io"
 	"sort"
 )
 
@@ -15,10 +16,8 @@ import (
 type Migration struct {
 	// The main version of the migration such as "v0.0.1"
 	Version string
-	// The migration path relative to the embed.FS filesystem
-	// passed in options. This is optional and will be
-	// skipped if none is passed.
-	MigrationPath string
+	// The migration file, byte value of the SQL migration.
+	Migration io.Reader
 	// CallBackUp is a function called when the migration
 	// is going up, this can be useful when manipulating
 	// files and directories for the current version.

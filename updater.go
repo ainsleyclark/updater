@@ -6,7 +6,6 @@ package updater
 
 import (
 	"github.com/hashicorp/go-version"
-	"github.com/jmoiron/sqlx"
 	"github.com/mouuff/go-rocket-update/pkg/provider"
 	"github.com/mouuff/go-rocket-update/pkg/updater"
 )

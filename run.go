@@ -6,16 +6,26 @@ package updater
 
 import (
 	"database/sql"
-	"github.com/gookit/color"
+	"io/ioutil"
 )
 
-func (u *Updater) runMigrations() (Status, error) {
-	tx, err := u.opts.DB.Begin()
-	if err != nil {
-		return DatabaseError, err
-	}
+// db
+// migrations
+// version
+//
 
-	// TODO, what happens if there is no database but a callback?
+func (u *Updater) runMigrations() (Status, error) {
+	var (
+		err error
+		tx *sql.Tx
+	)
+
+	if u.opts.hasDB {
+		tx, err = u.opts.DB.Begin()
+		if err != nil {
+			return DatabaseError, err
+		}
+	}
 
 	migrations.Sort()
 
@@ -27,7 +37,6 @@ func (u *Updater) runMigrations() (Status, error) {
 		}
 
 		err := u.process(migration, tx)
-		color.Blue.Println(err)
 		if err != nil {
 			rollBackErr := u.rollBack(tx, down)
 			if rollBackErr != nil {
@@ -40,9 +49,11 @@ func (u *Updater) runMigrations() (Status, error) {
 		down = append(down, migration.CallBackDown)
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return DatabaseError, err
+	if u.opts.hasDB {
+		err := tx.Commit()
+		if err != nil {
+			return DatabaseError, err
+		}
 	}
 
 	return Updated, nil
@@ -65,14 +76,16 @@ func (u *Updater) rollBack(tx *sql.Tx, down []CallBackFn) error {
 }
 
 func (u *Updater) process(m *Migration, tx *sql.Tx) error {
-	migration, err := u.opts.Embed.ReadFile(m.MigrationPath)
+	migration, err := ioutil.ReadAll(m.Migration)
 	if err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(string(migration))
-	if err != nil {
-		return err
+	if u.opts.hasDB {
+		_, err = tx.Exec(string(migration))
+		if err != nil {
+			return err
+		}
 	}
 
 	if m.hasCallBack() {

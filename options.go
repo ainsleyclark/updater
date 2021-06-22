@@ -6,7 +6,6 @@ package updater
 
 import (
 	"database/sql"
-	"embed"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,10 +25,8 @@ type Options struct {
 	// SQL database to apply migrations, migrations will not
 	// be run if sql.DB is nil.
 	DB *sql.DB
-	// The embedded source of the migrations. This embed.FS
-	// should correlate to the MigrationPath in a
-	// Migration, for example, `v1/0.0.1.sql
-	Embed embed.FS
+	// Determines if the database is set.
+	hasDB bool
 }
 
 var (
@@ -56,6 +53,14 @@ func (o *Options) Validate() error {
 
 	if resp.StatusCode != http.StatusOK {
 		return ErrRepositoryURL
+	}
+
+	if o.DB != nil {
+		err := o.DB.Ping()
+		if err != nil {
+			return err
+		}
+		o.hasDB = true
 	}
 
 	return nil

@@ -4,96 +4,132 @@
 
 package updater
 
+import (
+	"fmt"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/hashicorp/go-version"
+	"github.com/stretchr/testify/assert"
+	"strings"
+	"testing"
+)
+
 const (
 	v001 = "UPDATE my_table SET name = 'tom' WHERE id = 1"
 )
 
-//
-//func TestUpdater_Run(t *testing.T) {
-//	tt := map[string]struct {
-//		input migrationRegistry
-//		mock  func(m sqlmock.Sqlmock)
-//		want  interface{}
-//		code int
-//	}{
-//		"Simple": {
-//			migrationRegistry{
-//				&Migration{Version: "v0.0.1", MigrationPath: "v0.0.1.sql", Stage: Major},
-//			},
-//			func(m sqlmock.Sqlmock) {
-//				m.ExpectBegin()
-//				m.ExpectExec(v001).
-//					WillReturnResult(sqlmock.NewResult(1, 1))
-//				m.ExpectCommit()
-//			},
-//			nil,
-//			4,
-//		},
-//		"Wrong File Name": {
-//			migrationRegistry{
-//				&Migration{Version: "v0.0.0", MigrationPath: "v0.0.1-wrong.sql", Stage: Major},
-//			},
-//			func(m sqlmock.Sqlmock) {
-//				m.ExpectBegin()
-//				m.ExpectRollback()
-//			},
-//			"open v0.0.1-wrong.sql: file does not exist",
-//		},
-//		"RollBack Error": {
-//			migrationRegistry{
-//				&Migration{Version: "v0.0.0", MigrationPath: "v0.0.1-wrong.sql", Stage: Major},
-//			},
-//			func(m sqlmock.Sqlmock) {
-//				m.ExpectBegin()
-//				m.ExpectRollback().
-//					WillReturnError(fmt.Errorf("error"))
-//			},
-//			"error",
-//		},
-//		//"Begin Error": {
-//		//	nil,
-//		//	func(m sqlmock.Sqlmock) {
-//		//		m.ExpectBegin().
-//		//			WillReturnError(fmt.Errorf("error"))
-//		//	},
-//		//	"error",
-//		//},
-//	}
-//
-//	for name, test := range tt {
-//		t.Run(name, func(t *testing.T) {
-//			db, mock, err := sqlmock.New()
-//			if err != nil {
-//				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-//			}
-//
-//			defer func() {
-//				migrations = make(migrationRegistry, 0)
-//				defer db.Close()
-//			}()
-//
-//			migrations = test.input
-//			u, err := New(Options{
-//				DB:            db,
-//				Embed:         testdata.Static,
-//				Version:       "0.0.0",
-//				RepositoryURL: "https://github.com/ainsleyclark/verbis",
-//			})
-//			assert.NoError(t, err)
-//
-//			test.mock(mock)
-//
-//			err = u.Run()
-//			if err != nil {
-//				color.Red.Println(err)
-//				assert.Contains(t, err.Error(), test.want)
-//				return
-//			}
-//
-//			err = mock.ExpectationsWereMet()
-//			if err != nil {
-//				t.Errorf("there were unfulfilled expectations: %s", err)
-//			}
-//		})
-//	}
-//}
+func TestUpdater_Run(t *testing.T) {
+	tt := map[string]struct {
+		input migrationRegistry
+		mock  func(m sqlmock.Sqlmock)
+		db bool
+		want  interface{}
+		code Status
+	}{
+		"Simple": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectCommit()
+			},
+			true,
+			nil,
+			Updated,
+		},
+		"Begin Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin().
+					WillReturnError(fmt.Errorf("error"))
+			},
+			true,
+			"error",
+			DatabaseError,
+		},
+		"Commit Error": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.1", Migration: strings.NewReader(v001), Stage: Major},
+			},
+			func(m sqlmock.Sqlmock) {
+				m.ExpectBegin()
+				m.ExpectExec(v001).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				m.ExpectCommit().
+					WillReturnError(fmt.Errorf("error"))
+			},
+			true,
+			"error",
+			DatabaseError,
+		},
+
+		"No Run": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.0", Migration: strings.NewReader(v001), Stage: Major},
+			},
+			nil,
+			false,
+			"error",
+			Updated,
+		},
+		"Bad Migration": {
+			migrationRegistry{
+				&Migration{Version: "v0.0.0", Migration: nil, Stage: Major},
+			},
+			nil,
+			false,
+			"error",
+			Updated,
+		},
+	}
+
+	for name, test := range tt {
+		t.Run(name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			}
+
+			if test.mock != nil {
+				test.mock(mock)
+			}
+
+			defer func() {
+				migrations = make(migrationRegistry, 0)
+				db.Close()
+			}()
+
+			u := Updater{
+				opts:    Options{
+					DB:            db,
+					Version:       "0.0.1",
+					RepositoryURL: "https://github.com/ainsleyclark/verbis",
+					hasDB: test.db,
+				},
+				pkg:     nil,
+				version: version.Must(version.NewVersion("0.0.1")),
+			}
+
+			migrations = test.input
+			assert.NoError(t, err)
+
+			code, err := u.runMigrations()
+			assert.Equal(t, test.code, code)
+			if err != nil {
+				assert.Contains(t, err.Error(), test.want)
+				return
+			}
+
+			if test.db {
+				err = mock.ExpectationsWereMet()
+				if err != nil {
+					t.Errorf("there were unfulfilled expectations: %s", err)
+				}
+			}
+		})
+	}
+}

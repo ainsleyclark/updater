@@ -7,6 +7,7 @@ package updater
 import (
 	sm "github.com/hashicorp/go-version"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
@@ -50,7 +51,7 @@ func TestAddMigration(t *testing.T) {
 		want  interface{}
 	}{
 		"Success": {
-			Migration{Version: "v0.0.1", Stage: Minor, MigrationPath: "v0.0.1.sql"},
+			Migration{Version: "v0.0.1", Stage: Minor, Migration: strings.NewReader("v0.0.1.sql")},
 			nil,
 		},
 		"No version": {
@@ -62,17 +63,17 @@ func TestAddMigration(t *testing.T) {
 			"no stage set",
 		},
 		"Bad version": {
-			Migration{Version: "v1.3.3.3", MigrationPath: "test", Stage: Minor},
+			Migration{Version: "v1.3.3.3", Migration: strings.NewReader("test"), Stage: Minor},
 			"invalid version",
 		},
 		"No CallBackUp": {
-			Migration{Version: "v0.0.1", MigrationPath: "test", Stage: Minor, CallBackDown: func() error {
+			Migration{Version: "v0.0.1", Migration: strings.NewReader("test"), Stage: Minor, CallBackDown: func() error {
 				return nil
 			}},
 			ErrCallBackMismatch.Error(),
 		},
 		"No CallBackDown": {
-			Migration{Version: "v0.0.1", MigrationPath: "test", Stage: Minor, CallBackUp: func() error {
+			Migration{Version: "v0.0.1", Migration: strings.NewReader("test"), Stage: Minor, CallBackUp: func() error {
 				return nil
 			}},
 			ErrCallBackMismatch.Error(),
