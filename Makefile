@@ -16,6 +16,9 @@ test-v:
 test-cover:
 	go clean -testcache && go test -v -cover -race $$(go list ./... | grep -v tests)
 
+cover:
+	gopherbadger -md="README.md"
+
 all:
 	$(MAKE) format
 	$(MAKE) lint

@@ -4,28 +4,28 @@
   <p align="center">Semantic updater and migrator for GoLang executables.</p>
   <p align="center">
     <a href="/LICENSE.md"><img alt="Software License" src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square"></a>
-    <a href='https://coveralls.io/github/ainsleyclark/updater?branch=master'><img src='https://coveralls.io/repos/github/ainsleyclark/updater/badge.svg?branch=master alt='Coverage Status' /></a>
+    <a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-77%25-brightgreen.svg?longCache=true&style=flat)</a>
     <a href="https://goreportcard.com/report/github.com/ainsleyclark/updater"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/ainsleyclark/updater"></a>
     <a href="https://pkg.go.dev/github.com/ainsleyclark/updater"><img src="https://godoc.org/github.com/ainsleyclark/updater?status.svg" alt="GoDoc"></a>
   </p>
 </p>
 
-
-## Introduction
-
 ## Why? [![start with why](https://img.shields.io/badge/start%20with-why%3F-brightgreen.svg?style=flat)](http://www.ted.com/talks/simon_sinek_how_great_leaders_inspire_action)
 
 Updater aims to unify semantic migrations and executable updates in GoLang. You can seamlessly update executables and 
-run any SQL database migrations that depend on the version of the application. 
+run any SQL database migrations that depend on the specific version of the application. Callbacks can be passed
+to each migration allowing you to edit environment variables, or a directory structure.
 
 ## Installation
-
 
 ```bash
 go get -u github.com/ainsleyclark/updater
 ```
 
 ## Example
+
+### Creating the updater
+To create an updater, simply call `updater.New()` with options `Updater.Options{}` 
 
 ```go
 u, err := updater.New(updater.Options{
@@ -47,6 +47,10 @@ if err != nil {
 fmt.Println(status)
 ```
 
+## Adding a migration
+Migrations are stored in memory, so you can call `AddMigration` from anywhere with as version number, SQL statement
+(optional) and CallBack functions (optional). 
+
 ```go
 func init() {
 	err := updater.AddMigration(&updater.SQL{
@@ -65,6 +69,6 @@ func init() {
 
 ## Credits
 
-Shout out to [https://github.com/mouuff/go-rocket-update](go-rocket-update)
+Shout out to [go-rocket-update](https://github.com/mouuff/go-rocket-update) for providing an excellent API for self updating executables.
 
 
