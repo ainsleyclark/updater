@@ -29,9 +29,9 @@ func TestUpdater_Run(t *testing.T) {
 	tt := map[string]struct {
 		input migrationRegistry
 		mock  func(m sqlmock.Sqlmock)
-		db bool
+		db    bool
 		want  interface{}
-		code Status
+		code  Status
 	}{
 		"Simple": {
 			migrationRegistry{
@@ -201,11 +201,11 @@ func TestUpdater_Run(t *testing.T) {
 			}()
 
 			u := Updater{
-				opts:    Options{
-					DB:            db,
-					Version:       "0.0.0",
-					RepositoryURL: "https://github.com/ainsleyclark/verbis",
-					hasDB: test.db,
+				opts: Options{
+					DB:        db,
+					Version:   "0.0.0",
+					GithubURL: "https://github.com/ainsleyclark/verbis",
+					hasDB:     test.db,
 				},
 				pkg:     nil,
 				version: version.Must(version.NewVersion("0.0.0")),

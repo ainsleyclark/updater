@@ -12,8 +12,8 @@ import (
 
 func Test_GetExecStatus(t *testing.T) {
 	tt := map[string]struct {
-		input   updater.UpdateStatus
-		want    Status
+		input updater.UpdateStatus
+		want  Status
 	}{
 		"Unknown": {
 			updater.Unknown,

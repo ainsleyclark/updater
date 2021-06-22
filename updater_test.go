@@ -18,11 +18,11 @@ func TestNew(t *testing.T) {
 		error bool
 	}{
 		"Success": {
-			Options{RepositoryURL: "https://github.com/ainsleyclark/verbis", Version: "0.0.1"},
+			Options{GithubURL: "https://github.com/ainsleyclark/verbis", Version: "0.0.1"},
 			false,
 		},
 		"Bad Version": {
-			Options{RepositoryURL: "https://github.com/ainsleyclark/verbis", Version: "wrong"},
+			Options{GithubURL: "https://github.com/ainsleyclark/verbis", Version: "wrong"},
 			true,
 		},
 		"Bad Options": {

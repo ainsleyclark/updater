@@ -45,7 +45,7 @@ func New(opts Options) (*Updater, error) {
 		opts: opts,
 		pkg: &updater.Updater{
 			Provider: &provider.Github{
-				RepositoryURL: opts.RepositoryURL,
+				RepositoryURL: opts.GithubURL,
 			},
 			Version: opts.Version,
 		},
@@ -77,7 +77,7 @@ func (u *Updater) LatestVersion() (string, error) {
 // rollback to the previous state.
 func (u *Updater) Update(archive string) (Status, error) {
 	u.pkg.Provider = &provider.Github{
-		RepositoryURL: u.opts.RepositoryURL,
+		RepositoryURL: u.opts.GithubURL,
 		ArchiveName:   archive,
 	}
 
@@ -106,4 +106,3 @@ func (u *Updater) Update(archive string) (Status, error) {
 
 	return status, nil
 }
-

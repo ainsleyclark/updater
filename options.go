@@ -15,7 +15,7 @@ import (
 type Options struct {
 	// The URL of the GitHub Repository to obtain the
 	// executable from.
-	RepositoryURL string
+	GithubURL string
 	// The currently running version.
 	Version string
 	// If set to true, updates will be verified by checking the
@@ -38,7 +38,7 @@ var (
 // Validate check's to see if the options are valid before
 // returning a new migrator.
 func (o *Options) Validate() error {
-	if o.RepositoryURL == "" {
+	if o.GithubURL == "" {
 		return errors.New("no repo url provided")
 	}
 
@@ -46,7 +46,7 @@ func (o *Options) Validate() error {
 		return errors.New("no version provided")
 	}
 
-	resp, err := http.Get(o.RepositoryURL)
+	resp, err := http.Get(o.GithubURL)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrRepositoryURL, err.Error())
 	}

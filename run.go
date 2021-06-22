@@ -15,7 +15,7 @@ import (
 func (u *Updater) runMigrations() (Status, error) {
 	var (
 		err error
-		tx *sql.Tx
+		tx  *sql.Tx
 	)
 
 	if u.opts.hasDB {

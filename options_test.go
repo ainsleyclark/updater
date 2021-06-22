@@ -17,11 +17,11 @@ func TestOptions_Validate(t *testing.T) {
 	tt := map[string]struct {
 		input   Options
 		handler func(w http.ResponseWriter, r *http.Request)
-		db func(mock sqlmock.Sqlmock)
+		db      func(mock sqlmock.Sqlmock)
 		want    interface{}
 	}{
 		"Success": {
-			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+			Options{GithubURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
@@ -35,13 +35,13 @@ func TestOptions_Validate(t *testing.T) {
 			"no repo url provided",
 		},
 		"No version": {
-			Options{RepositoryURL: "url"},
+			Options{GithubURL: "url"},
 			nil,
 			nil,
 			"no version provided",
 		},
 		"Bad URL": {
-			Options{RepositoryURL: "https://", Version: "0.0.1"},
+			Options{GithubURL: "https://", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},
@@ -49,7 +49,7 @@ func TestOptions_Validate(t *testing.T) {
 			"no such host",
 		},
 		"Invalid Status Code": {
-			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+			Options{GithubURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 			},
@@ -57,7 +57,7 @@ func TestOptions_Validate(t *testing.T) {
 			ErrRepositoryURL.Error(),
 		},
 		"With DB": {
-			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+			Options{GithubURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
@@ -66,8 +66,8 @@ func TestOptions_Validate(t *testing.T) {
 			},
 			ErrRepositoryURL.Error(),
 		},
-		 "Ping Error": {
-			Options{RepositoryURL: "/migrator", Version: "0.0.1"},
+		"Ping Error": {
+			Options{GithubURL: "/migrator", Version: "0.0.1"},
 			func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
@@ -84,7 +84,7 @@ func TestOptions_Validate(t *testing.T) {
 			if test.handler != nil {
 				ts := httptest.NewServer(http.HandlerFunc(test.handler))
 				defer ts.Close()
-				test.input.RepositoryURL = ts.URL + test.input.RepositoryURL
+				test.input.GithubURL = ts.URL + test.input.GithubURL
 			}
 
 			var mock sqlmock.Sqlmock

@@ -1,1 +1,0 @@
-UPDATE my_table SET name = 'tom' WHERE id = 1
