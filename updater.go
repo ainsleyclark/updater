@@ -75,31 +75,27 @@ func (u *Updater) LatestVersion() (string, error) {
 // or callbacks. If there was an error in any
 // of the processes, the package will
 // rollback to the previous state.
-func (u *Updater) Update(archive string, skipExec bool) (Status, error) {
-	var status Status
+func (u *Updater) Update(archive string, updateExec bool) (Status, error) {
+	u.pkg.Provider = &provider.Github{
+		RepositoryURL: u.opts.GithubURL,
+		ArchiveName:   archive,
+	}
 
-	if !skipExec {
-		u.pkg.Provider = &provider.Github{
-			RepositoryURL: u.opts.GithubURL,
-			ArchiveName:   archive,
-		}
+	update, err := u.pkg.Update()
+	status := getExecStatus(update)
 
-		update, err := u.pkg.Update()
-		status = getExecStatus(update)
+	if err != nil {
+		return status, err
+	}
 
+	if u.opts.Verify {
+		err = u.verifyInstallation()
 		if err != nil {
-			return status, err
-		}
-
-		if u.opts.Verify {
-			err = u.verifyInstallation()
-			if err != nil {
-				return ExecutableError, err
-			}
+			return ExecutableError, err
 		}
 	}
 
-	status, err := u.runMigrations()
+	status, err = u.runMigrations()
 	if err != nil {
 		rollBackErr := u.pkg.Rollback()
 		if rollBackErr != nil {

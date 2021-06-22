@@ -33,7 +33,7 @@ func TestGetMigration(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			migrations = []*Migration{&test.migration}
 			defer func() {
-				migrations = make(migrationRegistry, 0)
+				migrations = make(MigrationRegistry, 0)
 			}()
 			got, err := GetMigration(test.input)
 			if err != nil {
@@ -83,7 +83,7 @@ func TestAddMigration(t *testing.T) {
 	for name, test := range tt {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
-				migrations = make(migrationRegistry, 0)
+				migrations = make(MigrationRegistry, 0)
 			}()
 			err := AddMigration(&test.input)
 			if err != nil {
@@ -97,16 +97,16 @@ func TestAddMigration(t *testing.T) {
 
 func TestMigrationRegistry_Sort(t *testing.T) {
 	tt := map[string]struct {
-		input migrationRegistry
-		want  migrationRegistry
+		input MigrationRegistry
+		want  MigrationRegistry
 	}{
 		"Success": {
-			migrationRegistry{&Migration{Version: "v3.0.0"}, &Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}},
-			migrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
+			MigrationRegistry{&Migration{Version: "v3.0.0"}, &Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}},
+			MigrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
 		},
 		"Already Sorted": {
-			migrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
-			migrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
+			MigrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
+			MigrationRegistry{&Migration{Version: "v1.0.0"}, &Migration{Version: "v2.0.0"}, &Migration{Version: "v3.0.0"}},
 		},
 	}
 

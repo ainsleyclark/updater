@@ -36,13 +36,13 @@ type Migration struct {
 // running up or down.
 type CallBackFn func() error
 
-// migrationRegistry contains a slice of pointers to each
+// MigrationRegistry contains a slice of pointers to each
 // migration.
-type migrationRegistry []*Migration
+type MigrationRegistry []*Migration
 
 // migrations is the in memory registry store of
 // migrations.
-var migrations = make(migrationRegistry, 0)
+var migrations = make(MigrationRegistry, 0)
 
 var (
 	// ErrCallBackMismatch is returned by AddMigration when
@@ -51,6 +51,12 @@ var (
 	// one up and one down, or none at all.
 	ErrCallBackMismatch = errors.New("both CallBackUp and CallBackDown must be set")
 )
+
+// AllMigrations returns all migrations in the
+// registry.
+func AllMigrations() MigrationRegistry {
+	return migrations
+}
 
 // GetMigration Retrieves a migration from the registry by
 // looking up the version. An error will be returned on
@@ -108,21 +114,21 @@ func (m *Migration) hasCallBack() bool {
 	return m.CallBackUp != nil && m.CallBackDown != nil
 }
 
-// Sort migrationRegistry is a type that implements the
+// Sort MigrationRegistry is a type that implements the
 // sort.Interface interface so that versions can be
 // sorted.
-func (m migrationRegistry) Sort() {
+func (m MigrationRegistry) Sort() {
 	sort.Sort(m)
 }
 
-func (m migrationRegistry) Len() int {
+func (m MigrationRegistry) Len() int {
 	return len(m)
 }
 
-func (m migrationRegistry) Less(i, j int) bool {
+func (m MigrationRegistry) Less(i, j int) bool {
 	return m[i].toSemVer().LessThan(m[j].toSemVer())
 }
 
-func (m migrationRegistry) Swap(i, j int) {
+func (m MigrationRegistry) Swap(i, j int) {
 	m[i], m[j] = m[j], m[i]
 }

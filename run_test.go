@@ -27,14 +27,14 @@ func (errReader) Read(p []byte) (n int, err error) {
 
 func TestUpdater_Run(t *testing.T) {
 	tt := map[string]struct {
-		input migrationRegistry
+		input MigrationRegistry
 		mock  func(m sqlmock.Sqlmock)
 		db    bool
 		want  interface{}
 		code  Status
 	}{
 		"Simple": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
@@ -48,7 +48,7 @@ func TestUpdater_Run(t *testing.T) {
 			Updated,
 		},
 		"Begin Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
@@ -60,7 +60,7 @@ func TestUpdater_Run(t *testing.T) {
 			DatabaseError,
 		},
 		"Exec Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
@@ -74,7 +74,7 @@ func TestUpdater_Run(t *testing.T) {
 			DatabaseError,
 		},
 		"RollBack Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
@@ -89,7 +89,7 @@ func TestUpdater_Run(t *testing.T) {
 			DatabaseError,
 		},
 		"Commit Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			func(m sqlmock.Sqlmock) {
@@ -104,7 +104,7 @@ func TestUpdater_Run(t *testing.T) {
 			DatabaseError,
 		},
 		"No Run": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.0", SQL: strings.NewReader(v001), Stage: Major},
 			},
 			nil,
@@ -113,7 +113,7 @@ func TestUpdater_Run(t *testing.T) {
 			Updated,
 		},
 		"Bad SQL": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: errReader(1), Stage: Major},
 			},
 			nil,
@@ -122,7 +122,7 @@ func TestUpdater_Run(t *testing.T) {
 			Unknown,
 		},
 		"With Callback": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
 					return nil
 				}, CallBackDown: func() error {
@@ -140,7 +140,7 @@ func TestUpdater_Run(t *testing.T) {
 			Updated,
 		},
 		"With Callback Up Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
 					return fmt.Errorf("error")
 				}, CallBackDown: func() error {
@@ -158,7 +158,7 @@ func TestUpdater_Run(t *testing.T) {
 			CallBackError,
 		},
 		"With Callback Down Error": {
-			migrationRegistry{
+			MigrationRegistry{
 				&Migration{Version: "v0.0.1", SQL: strings.NewReader(v001), Stage: Major, CallBackUp: func() error {
 					return nil
 				}, CallBackDown: func() error {
@@ -196,7 +196,7 @@ func TestUpdater_Run(t *testing.T) {
 			}
 
 			defer func() {
-				migrations = make(migrationRegistry, 0)
+				migrations = make(MigrationRegistry, 0)
 				db.Close()
 			}()
 
