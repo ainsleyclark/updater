@@ -49,7 +49,7 @@ To create an updater, simply call `updater.New()` with options `Updater.Options{
 
 ```go
 u, err := updater.New(updater.Options{
-    GithubURL: "https://github.com/ainsleyclark/verbis", // The URL of the Git Repos
+    GithubURL: "https://github.com/ainsleyclark/my-repo", // The URL of the Git Repos
     Version:       "v0.0.1", // The currently running version
     Verify:        false, // Updates will be verified by checking the new exec with -version
     DB:            nil, // Pass in an sql.DB for a migration
@@ -59,7 +59,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-status, err := u.Update(fmt.Sprintf("verbis_v0.0.2_%s_%s.zip", runtime.GOOS, runtime.GOARCH))
+status, err := u.Update(fmt.Sprintf("my-repo_v0.0.2_%s_%s.zip", runtime.GOOS, runtime.GOARCH))
 if err != nil {
     return
 }
